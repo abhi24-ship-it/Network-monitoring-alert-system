@@ -550,9 +550,9 @@ Add one entry per person who runs the project, so results can be traced.
 
 | Name | GitHub username | Role |
 |---|---|---|
-| _Add name_ | _Add username_ | _Add role_ |
-| _Add name_ | _Add username_ | _Add role_ |
-| _Add name_ | _Add username_ | _Add role_ |
+|Abhishek Bhat| _Add username_ | _Add role_ |
+|Abhishek Kumar| _Add username_ | _Add role_ |
+|Abhimanyu Singh| _Add username_ | _Add role_ |
 
 Project summary and concepts: `Project_Summary.docx`
 Implementation plan and design decisions: `ROADMAP.md`
