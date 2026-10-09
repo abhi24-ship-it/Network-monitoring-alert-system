@@ -554,5 +554,5 @@ Add one entry per person who runs the project, so results can be traced.
 |Abhishek Kumar| _Add username_ | _Add role_ |
 |Abhimanyu Singh| _Add username_ | _Add role_ |
 
-Project summary and concepts: `Project_Summary.docx`
+Project summary and concepts: `Network Monitoring and Alert System Concepts & Guide.docx`
 Implementation plan and design decisions: `ROADMAP.md`
