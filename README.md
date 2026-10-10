@@ -548,11 +548,11 @@ Add one entry per person who runs the project, so results can be traced.
 
 ## Team
 
-| Name | GitHub username | Role |
+| Name | GitHub username |
 |---|---|---|
-|Abhishek Bhat| _Add username_ | _Add role_ |
-|Abhishek Kumar| _Add username_ | _Add role_ |
-|Abhimanyu Singh| _Add username_ | _Add role_ |
+| Abhishek Bhat | abhi24-ship-it | 
+| Abhishek Kumar | cocabhishek197-tech | 
+| Abhimanyu Singh | abhimanyu-singh-gg | 
 
 Project summary and concepts: `Network Monitoring and Alert System Concepts & Guide.docx`
 Implementation plan and design decisions: `ROADMAP.md`
