@@ -1,6 +1,8 @@
 """Regression tests: actual controller methods, with Ryu transport stubbed out.
 
 These checks do not emulate OpenFlow transport or validate Mininet integration.
+Three expected failures document existing bugs; they are not passing checks.
+The application remains the original four-file implementation.
 Run from the repository root: python3 -m unittest discover -s tests -v
 """
 import importlib.util
@@ -13,7 +15,6 @@ import unittest
 from unittest.mock import Mock, patch
 from collections import defaultdict
 
-from monitor_utils import decode_telemetry, flow_rate
 
 
 def load_controller():
@@ -50,7 +51,6 @@ def make_monitor(cpu=20, rate=1_000_000, now=100):
     monitor = object.__new__(controller.NetworkMonitor)
     monitor.telemetry = {IP: {'cpu_pct': cpu, 'tx_bps': rate, '_rx_ts': now}}
     monitor.last_counter = {}
-    monitor.pending_stats = {}
     monitor.datapaths = {}
     monitor.mac_to_port = {}
     monitor.streak = defaultdict(int)
@@ -58,62 +58,6 @@ def make_monitor(cpu=20, rate=1_000_000, now=100):
     monitor.logger = Mock()
     monitor._alert = Mock()
     return monitor
-
-
-class TelemetryTests(unittest.TestCase):
-    def test_valid_and_extra_fields(self):
-        msg = {'cpu_pct': 92, 'tx_bps': 9e6, 'seq': 0, 'extra': 'allowed'}
-        self.assertEqual(decode_telemetry(json.dumps(msg).encode()), msg)
-
-    def test_reject_bad_payloads(self):
-        payloads = [b'[]', b'null', b'42', b'"hello"', b'{', b'\xff', b'{}',
-                    b'[' * 2000 + b']' * 2000]
-        valid = {'cpu_pct': 20, 'tx_bps': 100, 'seq': 1}
-        for key, values in {
-            'cpu_pct': [-1, 101, True, '92', None, float('nan'), float('inf'), 10**400],
-            'tx_bps': [-1, False, '100', None, float('nan'), float('inf'), 10**400],
-            'seq': [-1, True, 1.5, '1', None],
-        }.items():
-            for value in values:
-                payloads.append(json.dumps(dict(valid, **{key: value})).encode())
-            payloads.append(json.dumps({k: v for k, v in valid.items() if k != key}).encode())
-        for data in payloads:
-            with self.subTest(data=data[:80]), self.assertRaises(ValueError):
-                decode_telemetry(data)
-
-    def test_collector_survives_bad_reports_then_receives_valid(self):
-        monitor = make_monitor()
-        monitor.telemetry = {}
-        sock = Mock()
-        good = json.dumps({'cpu_pct': 20, 'tx_bps': 100, 'seq': 0}).encode()
-        sock.recvfrom.side_effect = [(b'[]', (IP, 1)), (b'{}', (IP, 1)),
-                                    (good, (IP, 1)), KeyboardInterrupt()]
-        with patch.object(controller.socket, 'socket', return_value=sock), \
-                patch.object(controller.time, 'monotonic', return_value=123), \
-                self.assertRaises(KeyboardInterrupt):
-            monitor._telemetry_loop()
-        self.assertEqual(monitor.telemetry[IP]['_rx_ts'], 123)
-        self.assertEqual(monitor.telemetry[IP]['seq'], 0)
-
-
-class RateTests(unittest.TestCase):
-    def test_first_sample(self):
-        self.assertEqual(flow_rate(None, 500000, 2, 100), 2e6)
-
-    def test_continuous_flow(self):
-        self.assertEqual(flow_rate((500000, 2, 100), 1000000, 4, 102), 2e6)
-
-    def test_restart_after_long_gap(self):
-        self.assertEqual(flow_rate((1000000, 4, 102), 500000, 2, 202), 2e6)
-
-    def test_restart_with_larger_counter(self):
-        self.assertEqual(flow_rate((100, 10, 100), 500000, 2, 102), 2e6)
-
-    def test_restart_age_larger_than_previous_but_younger_than_gap(self):
-        self.assertEqual(flow_rate((100, 2, 100), 1500000, 6, 120), 2e6)
-
-    def test_duplicate_sample(self):
-        self.assertEqual(flow_rate((100, 2, 100), 100, 2, 100), 0)
 
 
 class RuleTests(unittest.TestCase):
@@ -166,12 +110,110 @@ class RuleTests(unittest.TestCase):
             monitor._evaluate({IP: tx}, {}, now)
         monitor._alert.assert_not_called()
 
-    def test_cooldown_and_early_monotonic_clock(self):
-        monitor = make_monitor(92, 9e6, now=0)
-        for now in (0, 2, 4, 6, 8, 10, 12):
+    def test_cooldown(self):
+        monitor = make_monitor(92, 9e6, now=100)
+        for now in (100, 102, 104, 106, 108, 110, 112):
             monitor.telemetry[IP]['_rx_ts'] = now
             monitor._evaluate({IP: 9e6}, {}, now)
-        self.assertEqual([c.args[-1] for c in monitor._alert.call_args_list], [2, 12])
+        self.assertEqual([c.args[-1] for c in monitor._alert.call_args_list], [102, 112])
+
+
+class OriginalCodeTests(unittest.TestCase):
+    def rate(self, monitor, count, now, age=2):
+        flow = types.SimpleNamespace(match={'ipv4_src': IP, 'ipv4_dst': '10.0.0.4',
+            'ip_proto': 17, 'udp_dst': 5001}, byte_count=count,
+            duration_sec=age, duration_nsec=0)
+        event = types.SimpleNamespace(msg=types.SimpleNamespace(
+            datapath=types.SimpleNamespace(id=1), body=[flow]))
+        with patch.object(controller.time, 'time', return_value=now):
+            monitor._flow_stats_reply(event)
+        return monitor._evaluate.call_args.args[0][IP]
+
+    def test_initial_and_continuous_rate(self):
+        monitor = make_monitor()
+        monitor._evaluate = Mock()
+        self.assertEqual(self.rate(monitor, 500000, 100), 2e6)
+        self.assertEqual(self.rate(monitor, 1000000, 102, 4), 2e6)
+
+    def test_valid_report_after_invalid_json(self):
+        monitor = make_monitor()
+        sock = Mock()
+        good = json.dumps({'cpu_pct': 20, 'tx_bps': 100, 'seq': 0}).encode()
+        sock.recvfrom.side_effect = [(b'{', (IP, 1)), (good, (IP, 1)), KeyboardInterrupt()]
+        with patch.object(controller.socket, 'socket', return_value=sock), \
+                patch.object(controller.time, 'time', return_value=123), \
+                self.assertRaises(KeyboardInterrupt):
+            monitor._telemetry_loop()
+        self.assertEqual(monitor.telemetry[IP]['_rx_ts'], 123)
+        self.assertEqual(monitor.telemetry[IP]['seq'], 0)
+
+    def test_alert_appends_json(self):
+        monitor = make_monitor()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'alerts.jsonl'
+            with patch.object(controller, 'ALERT_FILE', str(path)):
+                for now in (100, 110):
+                    controller.NetworkMonitor._alert(monitor, IP, 'TEST', 'WARNING', 'detail', now)
+            self.assertEqual([json.loads(line)['ts'] for line in path.read_text().splitlines()], [100, 110])
+
+    @unittest.expectedFailure
+    def test_known_bug_recreated_flow_should_use_new_lifetime(self):
+        monitor = make_monitor()
+        monitor._evaluate = Mock()
+        self.rate(monitor, 1000000, 100, 4)
+        self.assertEqual(self.rate(monitor, 500000, 200, 2), 2e6)
+
+    @unittest.expectedFailure
+    def test_known_bug_collector_should_reject_json_list(self):
+        monitor = make_monitor()
+        sock = Mock()
+        sock.recvfrom.side_effect = [(b'[]', (IP, 1)), KeyboardInterrupt()]
+        with patch.object(controller.socket, 'socket', return_value=sock), \
+                self.assertRaises(KeyboardInterrupt):
+            monitor._telemetry_loop()
+
+    @unittest.expectedFailure
+    def test_known_bug_incomplete_report_should_not_break_evaluation(self):
+        monitor = make_monitor()
+        del monitor.telemetry[IP]['tx_bps']
+        monitor._evaluate({IP: 1e6}, {}, 100)
+
+
+if __name__ == '__main__':
+    unittest.main()
+class CollectorTests(unittest.TestCase):
+    def test_invalid_json_skipped_and_valid_report_stored_by_sender(self):
+        monitor = make_monitor()
+        monitor.telemetry = {}
+        sock = Mock()
+        good = json.dumps({'host': 'untrusted-name', 'cpu_pct': 20,
+                           'tx_bps': 100, 'seq': 1}).encode()
+        sock.recvfrom.side_effect = [(b'{', (IP, 1)), (b'\xff', (IP, 1)),
+                                    (good, (IP, 1)), KeyboardInterrupt()]
+        with patch.object(controller.socket, 'socket', return_value=sock), \
+                patch.object(controller.time, 'time', return_value=123), \
+                self.assertRaises(KeyboardInterrupt):
+            monitor._telemetry_loop()
+        self.assertEqual(monitor.telemetry[IP]['_rx_ts'], 123)
+        self.assertEqual(monitor.telemetry[IP]['seq'], 1)
+        self.assertNotIn('untrusted-name', monitor.telemetry)
+
+    @unittest.expectedFailure
+    def test_known_limit_non_object_json_should_not_stop_collector(self):
+        """Original collector raises TypeError for valid JSON arrays."""
+        monitor = make_monitor()
+        sock = Mock()
+        sock.recvfrom.side_effect = [(b'[]', (IP, 1)), KeyboardInterrupt()]
+        with patch.object(controller.socket, 'socket', return_value=sock), \
+                self.assertRaises(KeyboardInterrupt):
+            monitor._telemetry_loop()
+
+    @unittest.expectedFailure
+    def test_known_limit_incomplete_report_should_not_break_evaluation(self):
+        """Original evaluator raises KeyError when tx_bps is missing."""
+        monitor = make_monitor()
+        del monitor.telemetry[IP]['tx_bps']
+        monitor._evaluate({IP: 1e6}, {}, 100)
 
 
 class StatsTests(unittest.TestCase):
@@ -181,58 +223,59 @@ class StatsTests(unittest.TestCase):
                    'ip_proto': 17, 'udp_dst': port}, byte_count=count,
             duration_sec=age, duration_nsec=0)
 
-    def reply(self, monitor, body, more=False, xid=1, now=100):
-        dp = types.SimpleNamespace(id=1, ofproto=types.SimpleNamespace(OFPMPF_REPLY_MORE=1))
+    def reply(self, monitor, body, now=100):
         ev = types.SimpleNamespace(msg=types.SimpleNamespace(
-            datapath=dp, xid=xid, flags=int(more), body=body))
-        with patch.object(controller.time, 'monotonic', return_value=now):
+            datapath=types.SimpleNamespace(id=1), body=body))
+        with patch.object(controller.time, 'time', return_value=now):
             monitor._flow_stats_reply(ev)
 
-    def test_rates_telemetry_exclusion_and_expired_cleanup(self):
+    def test_first_sample_and_telemetry_exclusion(self):
         monitor = make_monitor()
         monitor._evaluate = Mock()
-        self.reply(monitor, [self.flow(), self.flow(port=9999)])
-        tx, rx, _ = monitor._evaluate.call_args.args
+        table_miss = types.SimpleNamespace(match={})
+        self.reply(monitor, [self.flow(), self.flow(port=9999), table_miss])
+        tx, rx, now = monitor._evaluate.call_args.args
         self.assertEqual(tx[IP], 2e6)
         self.assertEqual(rx['10.0.0.4'], 2e6)
-        self.reply(monitor, [], xid=2, now=102)
-        self.assertFalse(monitor.last_counter)
+        self.assertEqual(now, 100)
 
-    def test_multipart_is_one_evaluation(self):
+    def test_continuous_flow_rate(self):
         monitor = make_monitor()
         monitor._evaluate = Mock()
-        self.reply(monitor, [self.flow()], more=True)
-        monitor._evaluate.assert_not_called()
-        self.reply(monitor, [self.flow(src='10.0.0.1')])
-        monitor._evaluate.assert_called_once()
-        self.assertEqual(monitor._evaluate.call_args.args[1]['10.0.0.4'], 4e6)
-        self.assertFalse(monitor.pending_stats)
-
-    def test_disconnect_clears_switch_state(self):
-        monitor = make_monitor()
         self.reply(monitor, [self.flow()])
-        monitor.mac_to_port[1] = {'mac': 1}
-        monitor.pending_stats[1] = (2, [])
-        monitor._state_change(types.SimpleNamespace(
-            state='dead', datapath=types.SimpleNamespace(id=1)))
-        self.assertFalse(monitor.last_counter)
-        self.assertFalse(monitor.mac_to_port)
-        self.assertFalse(monitor.pending_stats)
+        self.reply(monitor, [self.flow(count=1000000, age=4)], now=102)
+        self.assertEqual(monitor._evaluate.call_args.args[0][IP], 2e6)
 
-    def test_log_uses_epoch_timestamp(self):
+    @unittest.expectedFailure
+    def test_known_limit_recreated_flow_should_use_new_lifetime(self):
+        """Original code uses the old timestamp: 0.04 Mbps instead of 2 Mbps."""
+        monitor = make_monitor()
+        monitor._evaluate = Mock()
+        self.reply(monitor, [self.flow(count=1000000, age=4)], now=102)
+        self.reply(monitor, [], now=104)
+        self.reply(monitor, [self.flow(count=500000, age=2)], now=202)
+        self.assertEqual(monitor._evaluate.call_args.args[0][IP], 2e6)
+
+    def test_switch_registration_and_disconnect(self):
+        monitor = make_monitor()
+        dp = types.SimpleNamespace(id=1)
+        monitor._state_change(types.SimpleNamespace(state='main', datapath=dp))
+        self.assertIs(monitor.datapaths[1], dp)
+        monitor._state_change(types.SimpleNamespace(state='dead', datapath=dp))
+        self.assertNotIn(1, monitor.datapaths)
+
+    def test_alerts_append_json_lines(self):
         monitor = make_monitor()
         with tempfile.TemporaryDirectory() as directory:
-            path = str(Path(directory) / 'alerts.jsonl')
-            with patch.object(controller, 'ALERT_FILE', path), \
-                    patch.object(controller.time, 'time', return_value=1791900000):
-                controller.NetworkMonitor._alert(monitor, IP, 'TEST', 'WARNING', 'detail', 2)
-            self.assertEqual(json.loads(Path(path).read_text())['ts'], 1791900000)
-
-    def test_log_failure_does_not_stop_detection(self):
-        monitor = make_monitor()
-        with patch('builtins.open', side_effect=PermissionError('read only')):
-            controller.NetworkMonitor._alert(monitor, IP, 'TEST', 'WARNING', 'detail', 2)
-        monitor.logger.exception.assert_called_once()
+            path = Path(directory) / 'alerts.jsonl'
+            with patch.object(controller, 'ALERT_FILE', str(path)):
+                for now in (100, 110):
+                    controller.NetworkMonitor._alert(
+                        monitor, IP, 'HOST_FLOOD', 'CRITICAL', 'detail', now)
+            records = [json.loads(line) for line in path.read_text().splitlines()]
+        self.assertEqual([r['ts'] for r in records], [100, 110])
+        self.assertTrue(all(r['host'] == IP and r['rule'] == 'HOST_FLOOD'
+                            and r['severity'] == 'CRITICAL' for r in records))
 
 
 if __name__ == '__main__':

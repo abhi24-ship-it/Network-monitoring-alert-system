@@ -9,13 +9,13 @@ Hosts send to 10.0.0.254:9999 (the root-namespace link on s1).
 import json
 import socket
 import time
-from monitor_utils import decode_telemetry
 
 PORT = 9999
 
 
 def main():
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind(('0.0.0.0', PORT))
     last_seq = {}
     print(f'[collector] listening on UDP :{PORT}')
@@ -23,8 +23,8 @@ def main():
         while True:
             data, (ip, _) = sock.recvfrom(4096)
             try:
-                msg = decode_telemetry(data)
-            except ValueError:
+                msg = json.loads(data.decode())
+            except (ValueError, UnicodeDecodeError):
                 print(f'[collector] malformed datagram from {ip}')
                 continue
             msg['src_ip'] = ip

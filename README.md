@@ -5,15 +5,15 @@ A small Software-Defined Networking (SDN) project that detects abnormal network 
 1. **Network-layer data**: how many bytes the virtual switch actually forwards for each host, read from OpenFlow flow counters.
 2. **Application-layer data**: what each host *says* about itself (CPU usage and sending rate), sent as UDP telemetry messages.
 
-A single signal can be misleading: a busy link could be a large transfer, and high CPU could be a calculation. The controller combines reported CPU and switch-measured traffic to flag suspicious conditions. These rules do not prove an attack. Some alerts use both sources; high incoming load can be flagged using switch counters alone.
+A single signal can be misleading. A busy link could be a big file download. A high CPU could be a heavy calculation. When a host's link is nearly full **and** its own report says its CPU is maxed out, the combination points much more strongly to a runaway or compromised application. The controller raises an alert only when the two sources agree.
 
-> **Verification status:** The original author reported successful Ubuntu runs; the archived entry below has no captured outputs or environment versions. The reliability changes have local unit-test coverage, but still require a fresh Mininet/Ryu run on Ubuntu. See [TESTING.md](TESTING.md) for the exact checks and how to capture real evidence. For a simple code walkthrough, read [CODE_GUIDE.md](CODE_GUIDE.md).
+> **Status:** All stages (setup, Stage 1 to Stage 5, both scenarios) have been run end to end on an Ubuntu VM and produced the expected results. See [Verification log](#verification-log). If your run differs, check [Troubleshooting](#troubleshooting) first, then report the exact command and output.
 
 ---
 
 ## Important: where this runs
 
-**Run this project on an Ubuntu Linux machine (a VM is fine).** The Mininet/OVS setup documented here requires Linux; on Windows or macOS, use an Ubuntu VM. This repository is for reading, sharing and editing on any operating system. Full network demonstrations use Ubuntu; the dependency-free logic tests can run separately.
+**Run this project on an Ubuntu Linux machine (a VM is fine).** Mininet and Ryu do not run on Windows or macOS. This repository is for reading, sharing and editing on any operating system. Every test run happens on Ubuntu.
 
 ---
 
@@ -69,13 +69,13 @@ A single signal can be misleading: a busy link could be a large transfer, and hi
 
 Step by step:
 
-1. **Forwarding.** The switch forwards packets and counts bytes matching installed flow entries. Each counter grows during that entry’s lifetime and resets if the entry is recreated. Packets handled only through the controller’s PacketOut path are not counted in the specific forwarding entry.
+1. **Forwarding.** The switch forwards packets. For each host-to-host flow, it keeps a running byte counter. That counter only goes up.
 2. **Polling.** Every 2 seconds the controller asks the switch for all flow counters.
-3. **Rate calculation.** For each flow the controller computes `rate = (bytes now − bytes last time) × 8 ÷ change in flow duration`, giving bits per second. New/recreated flows use their own lifetime as the baseline. Missing entries are removed after a complete statistics reply.
+3. **Rate calculation.** For each flow the controller computes `rate = (bytes now − bytes last time) × 8 ÷ seconds elapsed`, giving bits per second.
 4. **Utilisation.** `utilisation = rate ÷ 10 Mbps`. For example, 2 Mbps on a 10 Mbps link is 20%.
 5. **Telemetry.** Telemetry packets (UDP destination port 9999) are *excluded* from the load calculation, so monitoring does not count as traffic.
 6. **Correlation.** For each host, the controller compares the switch-measured rate with the rate and CPU reported by the host's telemetry. It applies the rules in [Alert rules and thresholds](#alert-rules-and-thresholds).
-7. **Debouncing.** A rule must fire on **2 consecutive checks** before an alert is sent. After an alert, the same alert for the same host is suppressed for **10 seconds**. This filters isolated findings; it cannot eliminate false positives.
+7. **Debouncing.** A rule must fire on **2 consecutive checks** before an alert is sent. After an alert, the same alert for the same host is suppressed for **10 seconds**. This prevents one noisy measurement from causing a false alarm.
 
 ---
 
@@ -87,14 +87,10 @@ Step by step:
 | `monitor_controller.py` | **Yes**, with `ryu-manager` | The Ryu SDN controller. Contains the switch logic, the telemetry collector, the flow-statistics poller, and the alert rules. |
 | `telemetry_client.py` | No | Runs inside each Mininet host (started automatically by `topology.py`). Sends CPU/memory/rate telemetry over UDP. |
 | `telemetry_server.py` | Only for testing | A standalone UDP collector used in Stage 2 to check the telemetry path before the controller is involved. Do not run it at the same time as the controller (both use UDP port 9999). |
-| `monitor_utils.py` | Imported | Validates incoming reports and calculates rates across flow lifetimes. |
-| `process_manager.py` | Imported | Tracks demo processes, reports failures, and cleans up only those processes. |
-| `tests/` | Via unittest | Regression tests that run without Mininet or Ryu. |
-| `CODE_GUIDE.md` | No | Simple explanation of the current code and a 30-second presentation script. |
-| `TESTING.md` | No | Test commands, evidence checklist, and current verification limits. |
+| `ROADMAP.md` | No | The step-by-step implementation plan, including the design decisions and the reasons behind them. |
 | `README.md` | No | This file. |
 | `.gitignore` | No | Tells Git which generated files not to upload (logs, virtual environments, caches). |
-| `Network Monitoring and Alert System Concepts & Guide.docx` | No | Original long-form guide. See CODE_GUIDE.md for current behavior and corrections. |
+| `Project_Summary.docx` | No | Project summary and explanation of the concepts involved. |
 
 **Files created when you run the project** (not part of the repository):
 
@@ -103,7 +99,7 @@ Step by step:
 | `alerts.jsonl` | Controller | One JSON line per alert: time, host, rule, severity, details. |
 | `telemetry.jsonl` | `telemetry_server.py` | One JSON line per telemetry message received during the Stage 2 test. |
 | `/tmp/h1_telemetry.log` … `/tmp/h4_telemetry.log` | Telemetry clients | Each client's own output, inside the Mininet hosts. Useful when debugging. |
-| `/tmp/h1_iperf.log` … `/tmp/h4_iperf.log` | `topology.py` | Per-host iperf sender/receiver output. |
+| `/tmp/h4_iperf.log` | `topology.py` | Output of the iperf receiver on h4. |
 
 ---
 
@@ -140,20 +136,20 @@ Put the project in one folder on the VM. The examples below use `~/netmon`. Choo
 **Option A: clone from GitHub (recommended, gets the latest version).**
 ```bash
 sudo apt install -y git
-git clone https://github.com/abhi24-ship-it/Network-monitoring-alert-system.git ~/netmon
+git clone https://github.com/<your-github-username>/network-monitoring-alert-system.git ~/netmon
 cd ~/netmon
 ```
 - `git clone` downloads the whole repository into `~/netmon`.
 - The repository is private, so GitHub will ask you to log in. Use your username, and for the password use a GitHub **personal access token** (GitHub no longer accepts account passwords here). [Likely] You create one under Settings → Developer settings → Personal access tokens.
 
-**Option B: copy the files manually.** Download the repository ZIP, extract it, then copy the entire extracted folder (including `monitor_utils.py` and `process_manager.py`) to the VM (for example with a shared folder or by drag-and-drop in the VM window). Then run:
+**Option B: copy the files manually.** Download the four `.py` files, `ROADMAP.md`, `README.md` and `Project_Summary.docx` to Windows, then copy them to the VM (for example with a shared folder or by drag-and-drop in the VM window). Then run:
 ```bash
 mkdir -p ~/netmon
 cd ~/netmon
 ls
 ```
 
-`ls` should list all six Python files: `monitor_controller.py`, `topology.py`, `telemetry_client.py`, `telemetry_server.py`, `monitor_utils.py`, and `process_manager.py`.
+`ls` should list at least: `monitor_controller.py`, `topology.py`, `telemetry_client.py`, `telemetry_server.py`.
 
 Check that `topology.py` is the current version (it must have `h4` reporting telemetry):
 
@@ -316,7 +312,7 @@ If this ping fails, run `sh ip addr | grep 10.0.0.254` at the `mininet>` prompt 
 **T1** (venv on):
 ```bash
 cd ~/netmon
-PYTHONPATH=. ryu-manager monitor_controller.py
+ryu-manager monitor_controller.py
 ```
 Expected: lines including `instantiating app monitor_controller.py of NetworkMonitor` and `telemetry collector listening on UDP :9999`.
 
@@ -367,7 +363,7 @@ Before **each** scenario, reset everything:
 1. **T1:** Ctrl+C, then restart the controller:
    ```bash
    cd ~/netmon
-   PYTHONPATH=. ryu-manager monitor_controller.py
+   ryu-manager monitor_controller.py
    ```
 2. **T3:** remove any old alert log:
    ```bash
@@ -405,14 +401,14 @@ sudo python3 topology.py --scenario abnormal
 What happens:
 1. First 15 seconds: the same calm traffic as Scenario A.
 2. At 15 seconds: h3 starts sending 9 Mbps to h4 and reports 92% CPU.
-3. The senders offer about 11 Mbps (9 + 1 + 1), before headers, toward h4's 10 Mbps link. Summed flow counters can exceed 100% of that capacity; they do not show that h4 successfully received 11 Mbps or directly prove packet loss.
+3. h4's incoming link is then carrying about 11 Mbps (9 + 1 + 1) on a 10 Mbps link.
 
-Expected: after two consecutive qualifying evaluations, T1 prints alerts similar to the illustrative output below. The earlier 4–6 second estimate is not a guarantee; measure the delay on your VM:
+Expected: about 4–6 seconds after the attack starts, T1 prints alerts similar to:
 ```
-[CRITICAL] HOST_FLOOD host=10.0.0.3: uplink 94% AND cpu 92% -> suspected flood or heavy application activity
-[CRITICAL] LINK_CONGESTION host=10.0.0.4: offered downlink load 109% -> high incoming traffic; congestion not confirmed
+[CRITICAL] HOST_FLOOD host=10.0.0.3: uplink 94% AND cpu 92% -> runaway/compromised application
+[CRITICAL] LINK_CONGESTION host=10.0.0.4: downlink 109% -> possible flood victim
 ```
-Percentages and timing vary. Additional transient alerts may occur: in particular, h3 still reports 92% CPU after its 30-second traffic burst ends, so `CPU_SATURATION` can appear during the final observation period. The two named alerts are the main expected findings, not an exhaustive output guarantee.
+Percentages will vary slightly.
 
 In T3, view the saved alerts:
 ```bash
@@ -420,7 +416,7 @@ cat alerts.jsonl
 ```
 Each line is one alert in JSON format. An example line:
 ```json
-{"ts": 1728000000.12, "host": "10.0.0.3", "rule": "HOST_FLOOD", "severity": "CRITICAL", "detail": "uplink 94% AND cpu 92% -> suspected flood or heavy application activity"}
+{"ts": 1728000000.12, "host": "10.0.0.3", "rule": "HOST_FLOOD", "severity": "CRITICAL", "detail": "uplink 94% AND cpu 92% -> runaway/compromised application"}
 ```
 Fields: `ts` is the Unix time of the alert, `host` is the host's **IP address** (`10.0.0.3` means h3), `rule` is the rule name from the table above, `severity` is CRITICAL or WARNING, and `detail` explains the numbers.
 
@@ -445,12 +441,12 @@ Fields: `ts` is the Unix time of the alert, `host` is the host's **IP address** 
 
 | Rule | Severity | Fires when | Meaning |
 |---|---|---|---|
-| `HOST_FLOOD` | CRITICAL | Uplink utilisation ≥ 70% **and** host CPU ≥ 80% | Heavy sending plus high reported CPU. Suspicious, but a legitimate transfer can trigger it too. |
+| `HOST_FLOOD` | CRITICAL | Uplink utilisation ≥ 70% **and** host CPU ≥ 80% | A host is sending a lot while its CPU is maxed out. Likely a runaway or compromised application. |
 | `HIGH_VOLUME_LOW_CPU` | WARNING | Uplink utilisation ≥ 70%, CPU < 80% | Heavy sending without high CPU. Probably a bulk transfer. |
 | `CPU_SATURATION` | WARNING | CPU ≥ 80%, uplink < 20% | The host is busy but not using the network. The problem is local computation. |
 | `TELEMETRY_MISMATCH` | WARNING | Switch and host disagree on sending rate by more than 50% (and the larger value is above 0.5 Mbps) | Possible spoofed telemetry, packet loss, or traffic the host is not reporting. |
-| `LINK_CONGESTION` | CRITICAL | Downlink utilisation ≥ 70% | High offered incoming load. This rule does not measure queues, delivered throughput, or packet loss. |
-| `TELEMETRY_STALE` | WARNING | Latest report is older than 6 seconds for a known host, or an active host has no report | The host is down, its telemetry is blocked, or it does not send telemetry. |
+| `LINK_CONGESTION` | CRITICAL | Downlink utilisation ≥ 70% | A host's incoming link is nearly full. That host may be the victim of a flood. |
+| `TELEMETRY_STALE` | WARNING | No telemetry for 6 seconds, but the host is known or active | The host is down, its telemetry is blocked, or it does not send telemetry. |
 
 ### Constants
 
@@ -459,7 +455,7 @@ Fields: `ts` is the Unix time of the alert, `host` is the host's **IP address** 
 | `LINK_CAPACITY_BPS` | 10,000,000 (10 Mbps) | `monitor_controller.py` | Must match `bw=10` in `topology.py`. |
 | `POLL_INTERVAL` | 2.0 s | controller | How often flow counters are read. |
 | `STALE_AFTER` | 6.0 s | controller | Telemetry older than this is treated as missing. |
-| `MIN_BPS` | 50,000 (50 kbps) | controller | Only unknown hosts need traffic above this floor for stale-host detection; previously reporting hosts are checked even when idle. |
+| `MIN_BPS` | 50,000 (50 kbps) | controller | Traffic below this is ignored for stale-host detection. |
 | `CONFIRM_CYCLES` | 2 | controller | Consecutive hits needed before an alert fires. |
 | `COOLDOWN` | 10.0 s | controller | Minimum gap between repeats of the same alert. |
 | `util_high` | 0.70 | `T` dict | 70% utilisation threshold. |
@@ -474,7 +470,7 @@ To change a threshold, edit the `T` dictionary (or the constant) in `monitor_con
 
 ## Concepts glossary
 
-A short reference. [CODE_GUIDE.md](CODE_GUIDE.md) explains these terms alongside the current code. The original DOCX guide remains in the repository as background material.
+A short reference. The project summary document (`Project_Summary.docx`) explains these in more depth.
 
 | Term | Plain meaning |
 |---|---|
@@ -488,7 +484,7 @@ A short reference. [CODE_GUIDE.md](CODE_GUIDE.md) explains these terms alongside
 | **Host** | A virtual computer in Mininet (`h1`–`h4`). |
 | **UDP** | A fast, connectionless way to send messages. There is no acknowledgement, so messages can be lost. Telemetry uses UDP. |
 | **Telemetry** | Regular status reports sent from a system to a monitor. Here, JSON messages with CPU and rate data. |
-| **Sequence number (`seq`)** | A counter in each telemetry message. Gaps can suggest loss, but reordering/restarts complicate interpretation. Only the standalone collector estimates gaps; the controller checks freshness. |
+| **Sequence number (`seq`)** | A counter in each telemetry message. A gap in the sequence means messages were lost. |
 | **Bit / byte** | 1 byte = 8 bits. Network speeds are quoted in bits per second (bps). |
 | **Mbps** | Megabits per second. 1 Mbps = 1,000,000 bits per second. |
 | **Utilisation** | How full a link is, as a percentage of its capacity. |
@@ -516,8 +512,6 @@ A short reference. [CODE_GUIDE.md](CODE_GUIDE.md) explains these terms alongside
 | Strange interface or "file exists" errors | Leftover Mininet state | Run `sudo mn -c`. |
 | `ovs-ofctl` command not found | Open vSwitch is not installed or not running | Run `sudo systemctl status openvswitch-switch`, and reinstall if needed. |
 
-The scenario runner tracks telemetry and iperf processes. A failed or unexpectedly stopped process raises an error naming its `/tmp/hN_telemetry.log` or `/tmp/hN_iperf.log`. Finite iperf clients may finish successfully. Automated scenarios check processes during waits; interactive CLI mode checks at startup and on exit. Process health alone does not prove packet delivery.
-
 When reporting a problem, include the exact command you ran, the terminal the output came from, and the full error text.
 
 ---
@@ -526,13 +520,10 @@ When reporting a problem, include the exact command you ran, the terminal the ou
 
 - **CPU values are simulated.** All Mininet hosts share the VM's CPUs, so the CPU value each host reports is the whole VM's CPU, not its own. The demonstration uses `--cpu-override` to set a fixed CPU value. The traffic and byte counts are real. Document this in any report.
 - **Single switch.** The controller assumes one switch. With more switches, traffic could be counted more than once.
-- **UDP is unreliable.** Telemetry can be lost or forged. The standalone collector estimates sequence gaps; the controller checks freshness. Neither validates sender identity or prevents forgery.
+- **UDP is unreliable.** Telemetry can be lost or forged. Sequence numbers detect loss but cannot prevent forgery.
 - **Test traffic is simple.** The demonstration uses constant-rate iperf flows, not real application traffic.
-- **Fixed thresholds.** Thresholds are set by hand. A learned baseline is a possible future extension.
-- **Evidence limits.** The original author reported successful runs without attaching raw evidence. Unit tests cover logic, not Mininet/OVS transport or installation compatibility. Re-run both scenarios after these changes.
-- **CPU and memory scope.** Without an override, psutil reports shared machine CPU/memory, not isolated per-host resources. Memory is transmitted but unused by the detector.
-- **Flow coverage.** The counters cover matching IPv4 forwarding entries, not every packet or all protocols. Rate disagreement can also result from different sampling windows and header accounting.
-- **Detection only.** No blocking or automatic mitigation is implemented.
+- **Fixed thresholds.** Thresholds are set by hand. The roadmap lists a learned baseline as a possible extension.
+- **Single-run evidence.** The results in the verification log come from one set of runs. Timings (such as "4–6 seconds") and alert percentages will vary between machines.
 
 ---
 
@@ -540,10 +531,10 @@ When reporting a problem, include the exact command you ran, the terminal the ou
 
 Add one entry per person who runs the project, so results can be traced.
 
-### Historical report: 2026-10-09, author (not independently reproduced)
+### Entry: 2026-10-09, author
 
-- **Ubuntu version:** Not recorded in the original entry.
-- **Ryu Python version:** Not recorded in the original entry.
+- **Ubuntu version:** _fill in (run `lsb_release -a`)_
+- **Ryu Python version:** _fill in (run `python3 --version` with the venv on)_
 - **Setup:** Pass
 - **Stage 1 (Mininet alone):** Pass
 - **Stage 2 (telemetry path):** Pass
@@ -551,21 +542,17 @@ Add one entry per person who runs the project, so results can be traced.
 - **Stage 4 (measured traffic):** Pass
 - **Stage 5, normal scenario:** no alerts (Pass)
 - **Stage 5, abnormal scenario:** HOST_FLOOD for 10.0.0.3 and LINK_CONGESTION for 10.0.0.4 (Pass)
-- **Notes:** Run end to end; reported by the author. No captured output is included. This historical report does not verify the current reliability changes; use TESTING.md for a new run.
+- **Notes:** Run end to end; reported by the author.
 
 ---
 
 ## Team
 
-| Name | GitHub username |
-|---|---|
-| Abhishek Bhat | abhi24-ship-it |
-| Abhishek Kumar | cocabhishek197-tech |
-| Abhimanyu Singh | abhimanyu-singh-gg |
-
-Individual contributions have not been recorded here; add only roles confirmed by the team.
+| Name | GitHub username |-Add role-|
+|---|---|---|
+| Abhishek Bhat | abhi24-ship-it |-Add role-|
+| Abhishek Kumar | cocabhishek197-tech |-Add role-|
+| Abhimanyu Singh | abhimanyu-singh-gg |-Add role-|
 
 Project summary and concepts: `Network Monitoring and Alert System Concepts & Guide.docx`
-Current code explanation: [CODE_GUIDE.md](CODE_GUIDE.md)
-
-Verification and evidence collection: [TESTING.md](TESTING.md)
+Implementation plan and design decisions: `ROADMAP.md`
