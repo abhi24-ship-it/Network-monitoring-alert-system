@@ -6,17 +6,17 @@
   sudo python3 topology.py --scenario cli        (build and drop to Mininet CLI)
 
 Layout:  h1 h2 h3 h4 -- s1 -- root namespace (10.0.0.254, the collector side)
-Start the controller first:  ryu-manager monitor_controller.py
+Start the controller first:  PYTHONPATH=. ryu-manager monitor_controller.py
 """
 import argparse
 import os
-import time
 
 from mininet.cli import CLI
 from mininet.link import TCLink
 from mininet.log import setLogLevel, info
 from mininet.net import Mininet
 from mininet.node import Node, OVSSwitch, RemoteController
+from process_manager import ProcessManager
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 COLLECTOR_IP = '10.0.0.254'
@@ -34,49 +34,66 @@ def build():
     # Root-namespace attachment so the controller process can receive UDP.
     root = Node('root', inNamespace=False)
     lnk = net.addLink(root, s1)
-    net.start()
-    root.setIP(f'{COLLECTOR_IP}/24', intf=lnk.intf1)
+    try:
+        net.start()
+        root.setIP(f'{COLLECTOR_IP}/24', intf=lnk.intf1)
+    except Exception:
+        try:
+            net.stop()
+        finally:
+            root.terminate()
+        raise
     return net, root
 
 
-def start_telemetry(net, cpu_overrides=None):
+def start_host_telemetry(net, jobs, name, cpu=None):
+    argv = [PY, os.path.join(BASE, 'telemetry_client.py'),
+            '--server', COLLECTOR_IP, '--interval', '2', '--host-id', name]
+    if cpu is not None:
+        argv.extend(['--cpu-override', str(cpu)])
+    jobs.start(f'{name}-telemetry', net.get(name), argv,
+               f'/tmp/{name}_telemetry.log')
+
+
+def start_telemetry(net, jobs, cpu_overrides=None):
     cpu_overrides = cpu_overrides or {}
     for name in ('h1', 'h2', 'h3', 'h4'):    # every host reports; h4 is also the sink
-        h = net.get(name)
-        extra = f'--cpu-override {cpu_overrides[name]}' if name in cpu_overrides else ''
-        h.cmd(f'{PY} {BASE}/telemetry_client.py --server {COLLECTOR_IP} '
-              f'--interval 2 --host-id {name} {extra} '
-              f'> /tmp/{name}_telemetry.log 2>&1 &')
+        start_host_telemetry(net, jobs, name, cpu_overrides.get(name))
 
 
-def run_normal(net):
-    h1, h2, h4 = net.get('h1', 'h2', 'h4')
-    start_telemetry(net, {'h1': 20, 'h2': 25, 'h3': 10, 'h4': 15})
-    h4.cmd('iperf -s -u -p 5001 > /tmp/h4_iperf.log 2>&1 &')
-    time.sleep(1)
-    h1.cmd('iperf -c 10.0.0.4 -u -p 5001 -b 1M -t 40 > /dev/null 2>&1 &')
-    h2.cmd('iperf -c 10.0.0.4 -u -p 5001 -b 1M -t 40 > /dev/null 2>&1 &')
+def start_traffic(net, jobs, seconds):
+    jobs.start('h4-iperf', net.get('h4'), ['iperf', '-s', '-u', '-p', '5001'],
+               '/tmp/h4_iperf.log')
+    jobs.wait(1)
+    for name in ('h1', 'h2'):
+        start_sender(net, jobs, name, '1M', seconds)
+
+
+def start_sender(net, jobs, name, rate, seconds):
+    jobs.start(f'{name}-iperf', net.get(name),
+               ['iperf', '-c', '10.0.0.4', '-u', '-p', '5001',
+                '-b', rate, '-t', str(seconds)],
+               f'/tmp/{name}_iperf.log', persistent=False)
+
+
+def run_normal(net, jobs):
+    start_telemetry(net, jobs, {'h1': 20, 'h2': 25, 'h3': 10, 'h4': 15})
+    start_traffic(net, jobs, 40)
     info('*** NORMAL: h1,h2 -> h4 at 1 Mbps each for 40s\n')
-    time.sleep(45)
+    jobs.wait(45)
 
 
-def run_abnormal(net):
-    h1, h2, h4 = net.get('h1', 'h2', 'h4')
-    start_telemetry(net, {'h1': 20, 'h2': 25, 'h3': 10, 'h4': 15})  # h3 starts normal too
-    h4.cmd('iperf -s -u -p 5001 > /tmp/h4_iperf.log 2>&1 &')
-    time.sleep(1)
-    h1.cmd('iperf -c 10.0.0.4 -u -p 5001 -b 1M -t 60 > /dev/null 2>&1 &')
-    h2.cmd('iperf -c 10.0.0.4 -u -p 5001 -b 1M -t 60 > /dev/null 2>&1 &')
+def run_abnormal(net, jobs):
+    start_telemetry(net, jobs, {'h1': 20, 'h2': 25, 'h3': 10, 'h4': 15})
+    start_traffic(net, jobs, 60)
     info('*** 15s of baseline traffic\n')
-    time.sleep(15)
+    jobs.wait(15)
 
-    info('*** ATTACK: h3 floods h4 at 9 Mbps, h3 telemetry reports 92%% CPU\n')
-    h3 = net.get('h3')
-    h3.cmd('pkill -f "telemetry_client.py.*--host-id h3"')
-    h3.cmd(f'{PY} {BASE}/telemetry_client.py --server {COLLECTOR_IP} --interval 2 '
-           f'--host-id h3 --cpu-override 92 > /tmp/h3_telemetry.log 2>&1 &')
-    h3.cmd('iperf -c 10.0.0.4 -u -p 5001 -b 9M -t 30 > /dev/null 2>&1 &')
-    time.sleep(35)
+    info('*** ATTACK: h3 sends at 9 Mbps, h3 telemetry reports 92% CPU\n')
+    jobs.stop('h3-telemetry')
+    start_host_telemetry(net, jobs, 'h3', 92)
+    start_sender(net, jobs, 'h3', '9M', 30)
+    jobs.wait(35)
 
 
 def main():
@@ -86,17 +103,26 @@ def main():
 
     setLogLevel('info')
     net, root = build()
+    jobs = ProcessManager()
     try:
-        net.pingAll()
+        if net.pingAll() != 0:
+            raise RuntimeError('Connectivity check failed; check Ryu before running a scenario')
         if args.scenario == 'normal':
-            run_normal(net)
+            run_normal(net, jobs)
         elif args.scenario == 'abnormal':
-            run_abnormal(net)
+            run_abnormal(net, jobs)
         else:
-            start_telemetry(net)
+            start_telemetry(net, jobs)
             CLI(net)
+            jobs.check()
     finally:
-        net.stop()
+        try:
+            jobs.close()
+        finally:
+            try:
+                net.stop()
+            finally:
+                root.terminate()
 
 
 if __name__ == '__main__':
