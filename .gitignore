@@ -1,6 +1,6 @@
-   __pycache__/
-   *.pyc
-   alerts.jsonl
-   telemetry.jsonl
-   ryu-venv/
-   .venv/
+__pycache__/
+*.pyc
+alerts.jsonl
+telemetry.jsonl
+ryu-venv/
+.venv/

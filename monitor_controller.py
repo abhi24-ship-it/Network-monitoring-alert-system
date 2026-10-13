@@ -2,7 +2,7 @@
 """Ryu app: learning switch + flow-stats poller + UDP telemetry collector +
 cross-layer anomaly engine.
 
-Run:  ryu-manager monitor_controller.py
+Run:  PYTHONPATH=. ryu-manager monitor_controller.py
 
 Layers fused here:
   network layer     -> per-host tx/rx rate from OpenFlow flow byte counters
@@ -20,6 +20,7 @@ from ryu.controller.handler import (CONFIG_DISPATCHER, MAIN_DISPATCHER,
 from ryu.lib import hub
 from ryu.lib.packet import packet, ethernet, ipv4, udp, ether_types
 from ryu.ofproto import ofproto_v1_3
+from monitor_utils import decode_telemetry, flow_rate
 
 # ---------------------------------------------------------------- config ---
 TELEMETRY_PORT = 9999
@@ -49,7 +50,8 @@ class NetworkMonitor(app_manager.RyuApp):
         self.mac_to_port = {}
         self.datapaths = {}
         self.telemetry = {}                 # src ip -> latest telemetry dict
-        self.last_counter = {}              # flow key -> (bytes, timestamp)
+        self.last_counter = {}              # flow key -> (bytes, duration, monotonic time)
+        self.pending_stats = {}             # switch id -> (request id, reply parts)
         self.streak = defaultdict(int)      # (ip, rule) -> consecutive hits
         self.last_alert = {}                # (ip, rule) -> last alert time
         hub.spawn(self._telemetry_loop)
@@ -69,6 +71,10 @@ class NetworkMonitor(app_manager.RyuApp):
             self.datapaths[ev.datapath.id] = ev.datapath
         else:
             self.datapaths.pop(ev.datapath.id, None)
+            self.mac_to_port.pop(ev.datapath.id, None)
+            self.pending_stats.pop(ev.datapath.id, None)
+            self.last_counter = {k: v for k, v in self.last_counter.items()
+                                 if k[0] != ev.datapath.id}
 
     def _add_flow(self, dp, priority, match, actions, idle=0):
         ofp, parser = dp.ofproto, dp.ofproto_parser
@@ -110,16 +116,15 @@ class NetworkMonitor(app_manager.RyuApp):
     # ---------------------------------------- application-layer telemetry --
     def _telemetry_loop(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind(('0.0.0.0', TELEMETRY_PORT))
         self.logger.info('telemetry collector listening on UDP :%d', TELEMETRY_PORT)
         while True:  # green socket: recvfrom yields to other Ryu threads
             data, (ip, _) = sock.recvfrom(4096)
             try:
-                msg = json.loads(data.decode())
-            except (ValueError, UnicodeDecodeError):
+                msg = decode_telemetry(data)
+            except ValueError:
                 continue
-            msg['_rx_ts'] = time.time()
+            msg['_rx_ts'] = time.monotonic()
             self.telemetry[ip] = msg   # key = real source IP, not a payload field
 
     # ------------------------------------------------ network-layer stats --
@@ -131,30 +136,39 @@ class NetworkMonitor(app_manager.RyuApp):
 
     @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
     def _flow_stats_reply(self, ev):
-        now = time.time()
+        now = time.monotonic()
         dpid = ev.msg.datapath.id
+        # Evaluate one complete snapshot, even if OpenFlow splits the reply.
+        xid, parts = self.pending_stats.get(dpid, (ev.msg.xid, []))
+        if xid != ev.msg.xid:
+            parts = []  # abandon an incomplete older request
+        parts.extend(ev.msg.body)
+        if ev.msg.flags & ev.msg.datapath.ofproto.OFPMPF_REPLY_MORE:
+            self.pending_stats[dpid] = (ev.msg.xid, parts)
+            return
+        self.pending_stats.pop(dpid, None)
         tx, rx = defaultdict(float), defaultdict(float)
+        seen = set()
 
-        for st in ev.msg.body:
+        for st in parts:
             m = st.match
             src, dst = m.get('ipv4_src'), m.get('ipv4_dst')
             if src is None:          # table-miss entry
                 continue
             key = (dpid, src, dst, m.get('ip_proto'), m.get('udp_dst'))
+            seen.add(key)
             prev = self.last_counter.get(key)
-            if prev is None:         # new flow: baseline = its own lifetime
-                age = st.duration_sec + st.duration_nsec / 1e9
-                prev = (0, now - max(age, 1e-3))
-            pbytes, pts = prev
-            self.last_counter[key] = (st.byte_count, now)
-            delta = st.byte_count - pbytes if st.byte_count >= pbytes else st.byte_count
-            bps = delta * 8 / max(now - pts, 1e-3)
+            age = st.duration_sec + st.duration_nsec / 1e9
+            bps = flow_rate(prev, st.byte_count, age, now)
+            self.last_counter[key] = (st.byte_count, age, now)
 
             if m.get('udp_dst') == TELEMETRY_PORT:
                 continue             # don't count monitoring overhead as load
             tx[src] += bps
             rx[dst] += bps
 
+        self.last_counter = {k: v for k, v in self.last_counter.items()
+                             if k[0] != dpid or k in seen}
         self._evaluate(tx, rx, now)
 
     # ------------------------------------------------- correlation engine --
@@ -177,7 +191,7 @@ class NetworkMonitor(app_manager.RyuApp):
                 if tx_util >= T['util_high'] and cpu >= T['cpu_high']:
                     findings['HOST_FLOOD'] = (
                         'CRITICAL', f'uplink {tx_util:.0%} AND cpu {cpu:.0f}% -> '
-                                    'runaway/compromised application')
+                                    'suspected flood or heavy application activity')
                 elif tx_util >= T['util_high']:
                     findings['HIGH_VOLUME_LOW_CPU'] = (
                         'WARNING', f'uplink {tx_util:.0%} with cpu only {cpu:.0f}% -> '
@@ -196,7 +210,8 @@ class NetworkMonitor(app_manager.RyuApp):
 
             if rx_util >= T['util_high']:
                 findings['LINK_CONGESTION'] = (
-                    'CRITICAL', f'downlink {rx_util:.0%} -> possible flood victim')
+                    'CRITICAL', f'offered downlink load {rx_util:.0%} -> '
+                                'high incoming traffic; congestion not confirmed')
 
             self._debounce(ip, findings, now)
 
@@ -208,12 +223,15 @@ class NetworkMonitor(app_manager.RyuApp):
             k = (ip, rule)
             self.streak[k] += 1
             if self.streak[k] >= CONFIRM_CYCLES and \
-                    now - self.last_alert.get(k, 0) >= COOLDOWN:
+                    now - self.last_alert.get(k, float('-inf')) >= COOLDOWN:
                 self.last_alert[k] = now
                 self._alert(ip, rule, sev, text, now)
 
     def _alert(self, ip, rule, sev, text, now):
         self.logger.warning('[%s] %s host=%s: %s', sev, rule, ip, text)
-        with open(ALERT_FILE, 'a') as f:
-            f.write(json.dumps({'ts': now, 'host': ip, 'rule': rule,
-                                'severity': sev, 'detail': text}) + '\n')
+        try:
+            with open(ALERT_FILE, 'a') as f:
+                f.write(json.dumps({'ts': time.time(), 'host': ip, 'rule': rule,
+                                    'severity': sev, 'detail': text}) + '\n')
+        except OSError:
+            self.logger.exception('Could not append alert to %s', ALERT_FILE)
