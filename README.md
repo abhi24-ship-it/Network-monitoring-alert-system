@@ -27,6 +27,7 @@ A single signal can be misleading. A busy link could be a big file download. A h
 - [Running the project](#running-the-project)
 - [Expected output](#expected-output)
 - [Alert rules and thresholds](#alert-rules-and-thresholds)
+- [Evaluation: thresholds and false positives / negatives](#evaluation-thresholds-and-false-positives--negatives)
 - [Concepts glossary](#concepts-glossary)
 - [Troubleshooting](#troubleshooting)
 - [Known limitations](#known-limitations)
@@ -87,6 +88,11 @@ Step by step:
 | `monitor_controller.py` | **Yes**, with `ryu-manager` | The Ryu SDN controller. Contains the switch logic, the telemetry collector, the flow-statistics poller, and the alert rules. |
 | `telemetry_client.py` | No | Runs inside each Mininet host (started automatically by `topology.py`). Sends CPU/memory/rate telemetry over UDP. |
 | `telemetry_server.py` | Only for testing | A standalone UDP collector used in Stage 2 to check the telemetry path before the controller is involved. Do not run it at the same time as the controller (both use UDP port 9999). |
+| `scenarios.py` | **Yes**, via `run_experiments.sh` | Labelled test scenarios (flood, benign bulk, slow attack, telemetry kill, ...) with ground truth. |
+| `run_experiments.sh` | **Yes** | Runs scenarios, each with a fresh controller, and stores `results/runs/<scenario>_<n>/`. |
+| `analysis/` | Offline | `evaluate.py` scores runs and writes `results/REPORT.md`; `replay.py` replays the real rules on logged polls. |
+| `docs/THRESHOLDS_AND_FP_FN.md` | No | Threshold table, FP/FN analysis and method. |
+| `tests/` | `python3 -m unittest discover -s tests` | Rule, scoring and replay tests (no Mininet needed). |
 | `ROADMAP.md` | No | The step-by-step implementation plan, including the design decisions and the reasons behind them. |
 | `README.md` | No | This file. |
 | `.gitignore` | No | Tells Git which generated files not to upload (logs, virtual environments, caches). |
@@ -465,6 +471,24 @@ Fields: `ts` is the Unix time of the alert, `host` is the host's **IP address** 
 | `mismatch_min_bps` | 500,000 | `T` dict | Ignore mismatches below 0.5 Mbps. |
 
 To change a threshold, edit the `T` dictionary (or the constant) in `monitor_controller.py`, then restart the controller.
+
+---
+
+## Evaluation: thresholds and false positives / negatives
+
+How the limits above were chosen, and how often the detector is wrong, is measured
+rather than assumed. On the Ubuntu VM:
+
+```bash
+./run_experiments.sh                 # 11 labelled scenarios x 5 runs, about 70 min
+python3 analysis/evaluate.py         # confusion matrix, baselines, threshold sweeps
+```
+
+Output: `results/REPORT.md` (tables), `results/sweep.csv`, `results/sweep.png`, and the
+raw per-run evidence in `results/runs/`. Method, threshold table and the predicted
+FP/FN cases are in [`docs/THRESHOLDS_AND_FP_FN.md`](docs/THRESHOLDS_AND_FP_FN.md).
+Set `NETMON_POLL_LOG=<file>` before `ryu-manager` to log the per-poll inputs the rules
+see (off by default).
 
 ---
 

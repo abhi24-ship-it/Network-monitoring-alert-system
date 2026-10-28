@@ -9,6 +9,7 @@ Layers fused here:
   application layer -> per-host CPU / self-reported tx rate from UDP telemetry
 """
 import json
+import os
 import socket
 import time
 from collections import defaultdict
@@ -31,6 +32,11 @@ MIN_BPS = 50_000                  # ignore anything below 50 kbps
 CONFIRM_CYCLES = 2                # consecutive violations before alerting
 COOLDOWN = 10.0                   # seconds between repeats of the same alert
 ALERT_FILE = 'alerts.jsonl'
+# Optional per-poll feature log for offline evaluation (analysis/evaluate.py).
+# Off unless NETMON_POLL_LOG is set, so normal behaviour is unchanged.
+POLL_LOG = os.environ.get('NETMON_POLL_LOG')
+POLL_LOG_COLS = ['ts', 'host', 'sw_tx_bps', 'sw_rx_bps',
+                 'tel_age_s', 'cpu_pct', 'host_tx_bps']
 
 T = {
     'util_high': 0.70,       # >=70% of link capacity
@@ -165,6 +171,7 @@ class NetworkMonitor(app_manager.RyuApp):
             tx_util = sw_tx / LINK_CAPACITY_BPS
             rx_util = sw_rx / LINK_CAPACITY_BPS
             tel = self.telemetry.get(ip)
+            self._log_poll(now, ip, sw_tx, sw_rx, tel)
             findings = {}
 
             if tel is None or now - tel['_rx_ts'] > STALE_AFTER:
@@ -199,6 +206,22 @@ class NetworkMonitor(app_manager.RyuApp):
                     'CRITICAL', f'downlink {rx_util:.0%} -> possible flood victim')
 
             self._debounce(ip, findings, now)
+
+    def _log_poll(self, now, ip, sw_tx, sw_rx, tel):
+        """Append the exact inputs the rules saw this poll (no-op unless enabled)."""
+        if not POLL_LOG:
+            return
+        try:
+            new = not os.path.exists(POLL_LOG)
+            with open(POLL_LOG, 'a') as f:
+                if new:
+                    f.write(','.join(POLL_LOG_COLS) + '\n')
+                age = '' if tel is None else f"{now - tel['_rx_ts']:.3f}"
+                cpu = '' if tel is None else tel.get('cpu_pct', '')
+                htx = '' if tel is None else tel.get('tx_bps', '')
+                f.write(f'{now:.3f},{ip},{sw_tx:.1f},{sw_rx:.1f},{age},{cpu},{htx}\n')
+        except OSError:
+            pass   # logging must never break detection
 
     def _debounce(self, ip, findings, now):
         for (kip, rule) in list(self.streak):
