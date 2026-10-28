@@ -1,0 +1,11 @@
+loading app /home/vboxuser/netmon/monitor_controller.py
+loading app ryu.controller.ofp_handler
+instantiating app /home/vboxuser/netmon/monitor_controller.py of NetworkMonitor
+instantiating app ryu.controller.ofp_handler of OFPHandler
+telemetry collector listening on UDP :9999
+[CRITICAL] LINK_CONGESTION host=10.0.0.4: downlink 97% -> possible flood victim
+[CRITICAL] HOST_FLOOD host=10.0.0.3: uplink 73% AND cpu 92% -> runaway/compromised application
+[CRITICAL] LINK_CONGESTION host=10.0.0.4: downlink 89% -> possible flood victim
+[CRITICAL] HOST_FLOOD host=10.0.0.3: uplink 61% AND cpu 92% -> runaway/compromised application
+[CRITICAL] LINK_CONGESTION host=10.0.0.4: downlink 83% -> possible flood victim
+[WARNING] CPU_SATURATION host=10.0.0.3: cpu 92% but uplink 0% -> host compute problem, not a network one

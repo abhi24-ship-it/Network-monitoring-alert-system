@@ -1,0 +1,5 @@
+loading app /home/vboxuser/netmon/monitor_controller.py
+loading app ryu.controller.ofp_handler
+instantiating app /home/vboxuser/netmon/monitor_controller.py of NetworkMonitor
+instantiating app ryu.controller.ofp_handler of OFPHandler
+telemetry collector listening on UDP :9999

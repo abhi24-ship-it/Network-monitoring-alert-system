@@ -1,0 +1,6 @@
+{"ts": 1793204903.841857, "host": "10.0.0.4", "rule": "LINK_CONGESTION", "severity": "CRITICAL", "detail": "downlink 76% -> possible flood victim"}
+{"ts": 1793204913.8728702, "host": "10.0.0.4", "rule": "LINK_CONGESTION", "severity": "CRITICAL", "detail": "downlink 92% -> possible flood victim"}
+{"ts": 1793204915.8767247, "host": "10.0.0.3", "rule": "HOST_FLOOD", "severity": "CRITICAL", "detail": "uplink 62% AND cpu 92% -> runaway/compromised application"}
+{"ts": 1793204923.8842893, "host": "10.0.0.4", "rule": "LINK_CONGESTION", "severity": "CRITICAL", "detail": "downlink 83% -> possible flood victim"}
+{"ts": 1793204925.8858411, "host": "10.0.0.3", "rule": "HOST_FLOOD", "severity": "CRITICAL", "detail": "uplink 64% AND cpu 92% -> runaway/compromised application"}
+{"ts": 1793204936.046693, "host": "10.0.0.3", "rule": "CPU_SATURATION", "severity": "WARNING", "detail": "cpu 92% but uplink 0% -> host compute problem, not a network one"}

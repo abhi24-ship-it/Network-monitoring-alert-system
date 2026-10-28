@@ -1,0 +1,23 @@
+(10.00Mbit) (10.00Mbit) (10.00Mbit) (10.00Mbit) (10.00Mbit) (10.00Mbit) (10.00Mbit) (10.00Mbit) *** Configuring hosts
+h1 h2 h3 h4 
+*** Starting controller
+c0 
+*** Starting 1 switches
+s1 (10.00Mbit) (10.00Mbit) (10.00Mbit) (10.00Mbit) ...(10.00Mbit) (10.00Mbit) (10.00Mbit) (10.00Mbit) 
+*** Ping: testing ping reachability
+h1 -> h2 h3 h4 
+h2 -> h1 h3 h4 
+h3 -> h1 h2 h4 
+h4 -> h1 h2 h3 
+*** Results: 0% dropped (12/12 received)
+*** 15s of baseline traffic
+*** ATTACK: h3 floods h4 at 9 Mbps, h3 telemetry reports 92%% CPU
+*** Stopping 1 controllers
+c0 
+*** Stopping 5 links
+.....
+*** Stopping 1 switches
+s1 
+*** Stopping 4 hosts
+h1 h2 h3 h4 
+*** Done

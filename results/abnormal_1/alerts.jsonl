@@ -1,0 +1,4 @@
+{"ts": 1793204783.1705306, "host": "10.0.0.4", "rule": "LINK_CONGESTION", "severity": "CRITICAL", "detail": "downlink 85% -> possible flood victim"}
+{"ts": 1793204785.207012, "host": "10.0.0.3", "rule": "HOST_FLOOD", "severity": "CRITICAL", "detail": "uplink 61% AND cpu 92% -> runaway/compromised application"}
+{"ts": 1793204793.2017574, "host": "10.0.0.4", "rule": "LINK_CONGESTION", "severity": "CRITICAL", "detail": "downlink 87% -> possible flood victim"}
+{"ts": 1793204803.213985, "host": "10.0.0.4", "rule": "LINK_CONGESTION", "severity": "CRITICAL", "detail": "downlink 80% -> possible flood victim"}

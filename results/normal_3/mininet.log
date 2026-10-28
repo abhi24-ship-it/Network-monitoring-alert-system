@@ -1,0 +1,22 @@
+(10.00Mbit) (10.00Mbit) (10.00Mbit) (10.00Mbit) (10.00Mbit) (10.00Mbit) (10.00Mbit) (10.00Mbit) *** Configuring hosts
+h1 h2 h3 h4 
+*** Starting controller
+c0 
+*** Starting 1 switches
+s1 (10.00Mbit) (10.00Mbit) (10.00Mbit) (10.00Mbit) ...(10.00Mbit) (10.00Mbit) (10.00Mbit) (10.00Mbit) 
+*** Ping: testing ping reachability
+h1 -> h2 h3 h4 
+h2 -> h1 h3 h4 
+h3 -> h1 h2 h4 
+h4 -> h1 h2 h3 
+*** Results: 0% dropped (12/12 received)
+*** NORMAL: h1,h2 -> h4 at 1 Mbps each for 40s
+*** Stopping 1 controllers
+c0 
+*** Stopping 5 links
+.....
+*** Stopping 1 switches
+s1 
+*** Stopping 4 hosts
+h1 h2 h3 h4 
+*** Done

@@ -1,0 +1,8 @@
+loading app /home/vboxuser/netmon/monitor_controller.py
+loading app ryu.controller.ofp_handler
+instantiating app /home/vboxuser/netmon/monitor_controller.py of NetworkMonitor
+instantiating app ryu.controller.ofp_handler of OFPHandler
+telemetry collector listening on UDP :9999
+[WARNING] TELEMETRY_STALE host=10.0.0.3: no fresh telemetry but host is known/active (host down, telemetry blocked, or uninstrumented sender)
+[WARNING] TELEMETRY_STALE host=10.0.0.3: no fresh telemetry but host is known/active (host down, telemetry blocked, or uninstrumented sender)
+[WARNING] TELEMETRY_STALE host=10.0.0.3: no fresh telemetry but host is known/active (host down, telemetry blocked, or uninstrumented sender)

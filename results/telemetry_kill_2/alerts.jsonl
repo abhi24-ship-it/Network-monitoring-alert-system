@@ -1,0 +1,3 @@
+{"ts": 1793205392.4080756, "host": "10.0.0.3", "rule": "TELEMETRY_STALE", "severity": "WARNING", "detail": "no fresh telemetry but host is known/active (host down, telemetry blocked, or uninstrumented sender)"}
+{"ts": 1793205402.4253051, "host": "10.0.0.3", "rule": "TELEMETRY_STALE", "severity": "WARNING", "detail": "no fresh telemetry but host is known/active (host down, telemetry blocked, or uninstrumented sender)"}
+{"ts": 1793205412.4683197, "host": "10.0.0.3", "rule": "TELEMETRY_STALE", "severity": "WARNING", "detail": "no fresh telemetry but host is known/active (host down, telemetry blocked, or uninstrumented sender)"}
