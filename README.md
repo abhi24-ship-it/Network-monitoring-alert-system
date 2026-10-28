@@ -27,6 +27,7 @@ A single signal can be misleading. A busy link could be a big file download. A h
 - [Running the project](#running-the-project)
 - [Expected output](#expected-output)
 - [Alert rules and thresholds](#alert-rules-and-thresholds)
+- [Evaluation: thresholds and false positives / negatives](#evaluation-thresholds-and-false-positives--negatives)
 - [Concepts glossary](#concepts-glossary)
 - [Troubleshooting](#troubleshooting)
 - [Known limitations](#known-limitations)
@@ -83,10 +84,12 @@ Step by step:
 
 | File | Run it? | Purpose |
 |---|---|---|
-| `topology.py` | **Yes**, with `sudo` | Builds the Mininet network, starts telemetry clients, and runs the `normal` / `abnormal` / `cli` scenarios. |
+| `topology.py` | **Yes**, with `sudo` | Builds the Mininet network, starts telemetry clients, and runs the five scenarios (`normal`, `abnormal`, `benign_backup`, `slow_attack`, `telemetry_kill`) or a `cli`. |
 | `monitor_controller.py` | **Yes**, with `ryu-manager` | The Ryu SDN controller. Contains the switch logic, the telemetry collector, the flow-statistics poller, and the alert rules. |
 | `telemetry_client.py` | No | Runs inside each Mininet host (started automatically by `topology.py`). Sends CPU/memory/rate telemetry over UDP. |
 | `telemetry_server.py` | Only for testing | A standalone UDP collector used in Stage 2 to check the telemetry path before the controller is involved. Do not run it at the same time as the controller (both use UDP port 9999). |
+| `run_experiments.sh` | **Yes** | Runs the 5 scenarios several times, one fresh controller per run, and saves `results/<scenario>_<n>/`. |
+| `evaluate.py` | **Yes**, after the runs | Scores the saved alerts (TP / FP / FN / TN, time to detect) and writes `results/summary.md`. |
 | `ROADMAP.md` | No | The step-by-step implementation plan, including the design decisions and the reasons behind them. |
 | `README.md` | No | This file. |
 | `.gitignore` | No | Tells Git which generated files not to upload (logs, virtual environments, caches). |
@@ -465,6 +468,71 @@ Fields: `ts` is the Unix time of the alert, `host` is the host's **IP address** 
 | `mismatch_min_bps` | 500,000 | `T` dict | Ignore mismatches below 0.5 Mbps. |
 
 To change a threshold, edit the `T` dictionary (or the constant) in `monitor_controller.py`, then restart the controller.
+
+---
+
+## Evaluation: thresholds and false positives / negatives
+
+Five scenarios, each with a known right answer, show how often the detector is right
+or wrong. Run them from the repository folder on the Ubuntu VM:
+
+```bash
+./run_experiments.sh        # 5 scenarios x 3 runs, about 20 minutes (./run_experiments.sh 1 for a quick pass)
+python3 evaluate.py         # prints the tables below and writes results/summary.md
+```
+
+Single scenario by hand: restart the controller, then `sudo python3 topology.py --scenario <name>`.
+
+### The scenarios
+
+| Scenario | What happens | Truth | Expected result |
+|---|---|---|---|
+| `normal` | h1, h2 send 1 Mbps to h4 | Nothing wrong | No alerts (true negative) |
+| `abnormal` | h3 floods h4 at 9 Mbps, reports CPU 92% | Attack | HOST_FLOOD on h3, LINK_CONGESTION on h4 (true positives) |
+| `benign_backup` | h3 runs a legitimate 8 Mbps backup at CPU 85% | Nothing wrong | **False alarms expected**: HOST_FLOOD and LINK_CONGESTION |
+| `slow_attack` | h3 sends 2 Mbps at CPU 30% | Attack, but quiet | **Miss expected** (false negative): under every threshold |
+| `telemetry_kill` | h3's telemetry client is killed | Fault | TELEMETRY_STALE on h3 after about 8 to 10 s |
+
+"Expected result" is a prediction from reading the rules. Only `results/summary.md`
+shows what actually happened.
+
+### Terms
+
+| | Something wrong | Nothing wrong |
+|---|---|---|
+| **Alert raised** | True positive (TP) | False positive (FP): a false alarm |
+| **No alert** | False negative (FN): a miss | True negative (TN) |
+
+### Why the thresholds have these values
+
+They are demonstration values, not tuned on data: normal readings in the design are
+about 10% link load and 20 to 25% CPU, and the flood is about 93% load and 92% CPU, so
+70% and 80% sit well between the two.
+
+| Threshold | Value | Reasoning | Which scenario exercises it |
+|---|---|---|---|
+| `util_high` | 70% | Far above normal load, below a full link | `abnormal` (crossed), `normal` (not crossed), `benign_backup` (crossed by harmless traffic) |
+| `cpu_high` | 80% | Far above normal CPU | `abnormal`, `benign_backup` |
+| `util_low` | 20% | Separates a quiet link from a busy one | `normal` |
+| `mismatch_ratio` | 50% | Host and switch rates may differ a little (headers, timing) | all scenarios (must stay silent) |
+| `CONFIRM_CYCLES` | 2 | One poll can be a blip; two are not | `abnormal` (adds about 2 s of delay) |
+| `STALE_AFTER` | 6 s | Three missed 2 s reports | `telemetry_kill` |
+
+Raising a threshold removes false alarms like `benign_backup` but adds misses like
+`slow_attack`; lowering it does the opposite. No setting removes both. These values
+were not swept, so the table shows where each is exercised, not that it is optimal.
+
+### Results
+
+After running, paste `results/summary.md` here. Do not fill this in from the
+expected-result column above.
+
+### Limits (state these in the write-up)
+
+- CPU is staged with `--cpu-override`, so CPU-based outcomes test the rules, not real host load.
+- Which alerts "should" fire is our own labelling of each scenario (`EXPECTED` in `evaluate.py`).
+- One topology (4 hosts, 1 switch, 10 Mbps) and a few runs per scenario: indicative, not statistical.
+- If a killed telemetry client also floods, HOST_FLOOD cannot fire (it needs fresh telemetry); only LINK_CONGESTION and TELEMETRY_STALE can. This case is not one of the five scenarios.
 
 ---
 
