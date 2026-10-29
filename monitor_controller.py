@@ -33,7 +33,7 @@ COOLDOWN = 10.0                   # seconds between repeats of the same alert
 ALERT_FILE = 'alerts.jsonl'
 
 T = {
-    'util_high': 0.70,       # >=70% of link capacity
+    'util_high': 0.60,       # >=60% of link capacity
     'util_low': 0.20,
     'cpu_high': 80.0,        # percent
     'mismatch_ratio': 0.50,  # |switch - host| / max(...) beyond this = mismatch
