@@ -10,3 +10,7 @@
 |---|---|---|
 | alert raised | TP = 9 | FP = 11 |
 | no alert | FN = 3 | TN = 3 |
+
+Thresholds in these runs: util_high = 60% (the earlier 70% default missed HOST_FLOOD in the VM, where h3’s measured uplink was 61–76% against 9 Mbps offered). 
+Five of the 11 false alarms are CPU_SATURATION warnings that appear in the last seconds, after h3’s traffic ends while its staged CPU value is still reported. LINK_CONGESTION fired within 2.7–3.4 s of the attack start, and HOST_FLOOD within 4.7–14.7 s.
+3 runs per scenario on one VM
