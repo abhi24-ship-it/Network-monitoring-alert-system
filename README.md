@@ -443,11 +443,11 @@ Fields: `ts` is the Unix time of the alert, `host` is the host's **IP address** 
 
 | Rule | Severity | Fires when | Meaning |
 |---|---|---|---|
-| `HOST_FLOOD` | CRITICAL | Uplink utilisation ≥ 70% **and** host CPU ≥ 80% | A host is sending a lot while its CPU is maxed out. Likely a runaway or compromised application. |
-| `HIGH_VOLUME_LOW_CPU` | WARNING | Uplink utilisation ≥ 70%, CPU < 80% | Heavy sending without high CPU. Probably a bulk transfer. |
+| `HOST_FLOOD` | CRITICAL | Uplink utilisation ≥ 60% **and** host CPU ≥ 80% | A host is sending a lot while its CPU is maxed out. Likely a runaway or compromised application. |
+| `HIGH_VOLUME_LOW_CPU` | WARNING | Uplink utilisation ≥ 60%, CPU < 80% | Heavy sending without high CPU. Probably a bulk transfer. |
 | `CPU_SATURATION` | WARNING | CPU ≥ 80%, uplink < 20% | The host is busy but not using the network. The problem is local computation. |
 | `TELEMETRY_MISMATCH` | WARNING | Switch and host disagree on sending rate by more than 50% (and the larger value is above 0.5 Mbps) | Possible spoofed telemetry, packet loss, or traffic the host is not reporting. |
-| `LINK_CONGESTION` | CRITICAL | Downlink utilisation ≥ 70% | A host's incoming link is nearly full. That host may be the victim of a flood. |
+| `LINK_CONGESTION` | CRITICAL | Downlink utilisation ≥ 60% | A host's incoming link is nearly full. That host may be the victim of a flood. |
 | `TELEMETRY_STALE` | WARNING | No telemetry for 6 seconds, but the host is known or active | The host is down, its telemetry is blocked, or it does not send telemetry. |
 
 ### Constants
@@ -460,7 +460,7 @@ Fields: `ts` is the Unix time of the alert, `host` is the host's **IP address** 
 | `MIN_BPS` | 50,000 (50 kbps) | controller | Traffic below this is ignored for stale-host detection. |
 | `CONFIRM_CYCLES` | 2 | controller | Consecutive hits needed before an alert fires. |
 | `COOLDOWN` | 10.0 s | controller | Minimum gap between repeats of the same alert. |
-| `util_high` | 0.70 | `T` dict | 70% utilisation threshold. |
+| `util_high` | 0.60 | `T` dict | 60% utilisation threshold. |
 | `util_low` | 0.20 | `T` dict | 20% utilisation threshold. |
 | `cpu_high` | 80.0 | `T` dict | 80% CPU threshold. |
 | `mismatch_ratio` | 0.50 | `T` dict | Allowed relative difference between switch and host measurements. |
@@ -506,11 +506,11 @@ shows what actually happened.
 
 They are demonstration values, not tuned on data: normal readings in the design are
 about 10% link load and 20 to 25% CPU, and the flood is about 93% load and 92% CPU, so
-70% and 80% sit well between the two.
+60% and 80% sit well between the two.
 
 | Threshold | Value | Reasoning | Which scenario exercises it |
 |---|---|---|---|
-| `util_high` | 70% | Far above normal load, below a full link | `abnormal` (crossed), `normal` (not crossed), `benign_backup` (crossed by harmless traffic) |
+| `util_high` | 60% | Far above normal load, below a full link | `abnormal` (crossed), `normal` (not crossed), `benign_backup` (crossed by harmless traffic) |
 | `cpu_high` | 80% | Far above normal CPU | `abnormal`, `benign_backup` |
 | `util_low` | 20% | Separates a quiet link from a busy one | `normal` |
 | `mismatch_ratio` | 50% | Host and switch rates may differ a little (headers, timing) | all scenarios (must stay silent) |
