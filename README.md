@@ -88,11 +88,11 @@ Step by step:
 | `monitor_controller.py` | **Yes**, with `ryu-manager` | The Ryu SDN controller. Contains the switch logic, the telemetry collector, the flow-statistics poller, and the alert rules. |
 | `telemetry_client.py` | No | Runs inside each Mininet host (started automatically by `topology.py`). Sends CPU/memory/rate telemetry over UDP. |
 | `telemetry_server.py` | Only for testing | A standalone UDP collector used in Stage 2 to check the telemetry path before the controller is involved. Do not run it at the same time as the controller (both use UDP port 9999). |
-| `run_experiments.sh` | **Yes** | Runs the 5 scenarios several times, one fresh controller per run, and saves `/<scenario>_<n>/`. |
+| `run_experiments.sh` | **Yes** | Runs the 5 scenarios several times, one fresh controller per run, and saves `results/<scenario>_<n>/`. |
 | `evaluate.py` | **Yes**, after the runs | Scores the saved alerts (TP / FP / FN / TN, time to detect) and writes `results/summary.md`. |
 | `README.md` | No | This file. |
 | `.gitignore` | No | Tells Git which generated files not to upload (logs, virtual environments, caches). |
-| `Project_Summary.docx` | No | Project summary and explanation of the concepts involved. |
+| `Network Monitoring and Alert System Concepts & Guide.docx` | No | Project summary and explanation of the concepts involved. |
 
 **Files created when you run the project** (not part of the repository):
 
@@ -144,7 +144,7 @@ cd ~/netmon
 - `git clone` downloads the whole repository into `~/netmon`.
 - The repository is private, so GitHub will ask you to log in. Use your username, and for the password use a GitHub **personal access token** (GitHub no longer accepts account passwords here). [Likely] You create one under Settings → Developer settings → Personal access tokens.
 
-**Option B: copy the files manually.** Download the four `.py` files,`README.md` and `Project_Summary.docx` to Windows, then copy them to the VM (for example with a shared folder or by drag-and-drop in the VM window). Then run:
+**Option B: copy the files manually.** Download the four `.py` files,`README.md` and `Network Monitoring and Alert System Concepts & Guide.docx` to Windows, then copy them to the VM (for example with a shared folder or by drag-and-drop in the VM window). Then run:
 ```bash
 mkdir -p ~/netmon
 cd ~/netmon
@@ -505,8 +505,7 @@ shows what actually happened.
 ### Why the thresholds have these values
 
 They are demonstration values, not tuned on data: normal readings in the design are
-about 10% link load and 20 to 25% CPU, and the flood is about 93% load and 92% CPU, so
-60% and 80% sit well between the two.
+about 10% link load and 20 to 25% CPU, and the flood is about 93% load and 92% CPU,70% missed, 60% was chosen after the runs, and there is no held-out set.
 
 | Threshold | Value | Reasoning | Which scenario exercises it |
 |---|---|---|---|
@@ -546,7 +545,7 @@ were not swept, so the table shows where each is exercised, not that it is optim
 
 ## Concepts glossary
 
-A short reference. The project summary document (`Project_Summary.docx`) explains these in more depth.
+A short reference. The project summary document (`Network Monitoring and Alert System Concepts & Guide.docx`) explains these in more depth.
 
 | Term | Plain meaning |
 |---|---|
@@ -609,8 +608,8 @@ Add one entry per person who runs the project, so results can be traced.
 
 ### Entry: 2026-10-09, author
 
-- **Ubuntu version:** _fill in (run `lsb_release -a`)_
-- **Ryu Python version:** _fill in (run `python3 --version` with the venv on)_
+- **Ubuntu version:** Ubuntu 26.04.1 LTS
+- **Ryu Python version:** Python 3.14.4
 - **Setup:** Pass
 - **Stage 1 (Mininet alone):** Pass
 - **Stage 2 (telemetry path):** Pass
@@ -618,7 +617,7 @@ Add one entry per person who runs the project, so results can be traced.
 - **Stage 4 (measured traffic):** Pass
 - **Stage 5, normal scenario:** no alerts (Pass)
 - **Stage 5, abnormal scenario:** HOST_FLOOD for 10.0.0.3 and LINK_CONGESTION for 10.0.0.4 (Pass)
-- **Notes:** Run end to end; reported by the author.
+- **Notes:** Run end to end;
 
 ---
 
