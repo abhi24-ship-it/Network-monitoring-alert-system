@@ -90,7 +90,6 @@ Step by step:
 | `telemetry_server.py` | Only for testing | A standalone UDP collector used in Stage 2 to check the telemetry path before the controller is involved. Do not run it at the same time as the controller (both use UDP port 9999). |
 | `run_experiments.sh` | **Yes** | Runs the 5 scenarios several times, one fresh controller per run, and saves `/<scenario>_<n>/`. |
 | `evaluate.py` | **Yes**, after the runs | Scores the saved alerts (TP / FP / FN / TN, time to detect) and writes `results/summary.md`. |
-| `ROADMAP.md` | No | The step-by-step implementation plan, including the design decisions and the reasons behind them. |
 | `README.md` | No | This file. |
 | `.gitignore` | No | Tells Git which generated files not to upload (logs, virtual environments, caches). |
 | `Project_Summary.docx` | No | Project summary and explanation of the concepts involved. |
@@ -145,7 +144,7 @@ cd ~/netmon
 - `git clone` downloads the whole repository into `~/netmon`.
 - The repository is private, so GitHub will ask you to log in. Use your username, and for the password use a GitHub **personal access token** (GitHub no longer accepts account passwords here). [Likely] You create one under Settings → Developer settings → Personal access tokens.
 
-**Option B: copy the files manually.** Download the four `.py` files, `ROADMAP.md`, `README.md` and `Project_Summary.docx` to Windows, then copy them to the VM (for example with a shared folder or by drag-and-drop in the VM window). Then run:
+**Option B: copy the files manually.** Download the four `.py` files,`README.md` and `Project_Summary.docx` to Windows, then copy them to the VM (for example with a shared folder or by drag-and-drop in the VM window). Then run:
 ```bash
 mkdir -p ~/netmon
 cd ~/netmon
@@ -599,7 +598,7 @@ When reporting a problem, include the exact command you ran, the terminal the ou
 - **Single switch.** The controller assumes one switch. With more switches, traffic could be counted more than once.
 - **UDP is unreliable.** Telemetry can be lost or forged. Sequence numbers detect loss but cannot prevent forgery.
 - **Test traffic is simple.** The demonstration uses constant-rate iperf flows, not real application traffic.
-- **Fixed thresholds.** Thresholds are set by hand. The roadmap lists a learned baseline as a possible extension.
+- **Fixed thresholds.** Thresholds are set by hand. 
 - **Single-run evidence.** The results in the verification log come from one set of runs. Timings (such as "4–6 seconds") and alert percentages will vary between machines.
 
 ---
@@ -625,11 +624,10 @@ Add one entry per person who runs the project, so results can be traced.
 
 ## Team
 
-| Name | GitHub username |-Add role-|
+| Name | GitHub username |Role|
 |---|---|---|
-| Abhishek Bhat | abhi24-ship-it |-Add role-|
-| Abhishek Kumar | cocabhishek197-tech |-Add role-|
-| Abhimanyu Singh | abhimanyu-singh-gg |-Add role-|
+| Abhishek Bhat | abhi24-ship-it |Network and SDN base|
+| Abhishek Kumar | cocabhishek197-tech |Telemetry|
+| Abhimanyu Singh | abhimanyu-singh-gg |Flow Statistics and Detection|
 
 Project summary and concepts: `Network Monitoring and Alert System Concepts & Guide.docx`
-Implementation plan and design decisions: `ROADMAP.md`
