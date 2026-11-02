@@ -626,7 +626,7 @@ Add one entry per person who runs the project, so results can be traced.
 | Name | GitHub username |Role|
 |---|---|---|
 | Abhishek Bhat | abhi24-ship-it |Network and SDN base|
-| Abhishek Kumar | cocabhishek197-tech |Telemetry|
-| Abhimanyu Singh | abhimanyu-singh-gg |Flow Statistics and Detection|
+| Abhimanyu Singh | abhimanyu-singh-gg |Telemetry|
+| Abhimanyu Singh | cocabhishek197-tech |Flow Statistics and Detection|
 
 Project summary and concepts: `Network Monitoring and Alert System Concepts & Guide.docx`
