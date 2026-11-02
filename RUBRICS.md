@@ -81,8 +81,8 @@ expected network behaviour.
 
 ### 2.5 Complete Application Functionality (4)
 
-- Four reporting hosts, collector, six alert rules (HOST_FLOOD, HIGH_VOLUME_LOW_CPU,
-  CPU_SATURATION, TELEMETRY_MISMATCH, LINK_CONGESTION, TELEMETRY_STALE), debouncing
+- Four reporting hosts, collector, four alert rules (HOST_FLOOD,
+  CPU_SATURATION, LINK_CONGESTION, TELEMETRY_STALE), debouncing
   (2 consecutive polls) and cooldown (10 s), alerts written to console and `alerts.jsonl`.
 - Normal operation: the `normal` scenario raised **no alerts in 3 of 3 runs**.
 
