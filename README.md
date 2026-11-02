@@ -627,6 +627,6 @@ Add one entry per person who runs the project, so results can be traced.
 |---|---|---|
 | Abhishek Bhat | abhi24-ship-it |Network and SDN base|
 | Abhimanyu Singh | abhimanyu-singh-gg |Telemetry|
-| Abhimanyu Singh | cocabhishek197-tech |Flow Statistics and Detection|
+| Abhishek Kumar | cocabhishek197-tech |Flow Statistics and Detection|
 
 Project summary and concepts: `Network Monitoring and Alert System Concepts & Guide.docx`
