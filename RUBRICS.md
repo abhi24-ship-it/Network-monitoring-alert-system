@@ -3,9 +3,7 @@
 Project: **Network Monitoring and Alert System** (Mininet + Ryu + UDP telemetry sockets)
 
 This file maps each rubric component of the SDN-Socket Programming mini project to
-the code, documentation and measured evidence in this repository. Demo and viva
-components are out of scope here (Initial Testing & Demo, and the demo/viva part of
-Documentation).
+the code, documentation and measured evidence in this repository. 
 
 Status key: **Met** = fully shown by the evidence listed. **Partly met** = implemented,
 with a stated gap. Gaps are listed openly in section 3.
