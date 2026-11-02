@@ -88,7 +88,7 @@ Step by step:
 | `monitor_controller.py` | **Yes**, with `ryu-manager` | The Ryu SDN controller. Contains the switch logic, the telemetry collector, the flow-statistics poller, and the alert rules. |
 | `telemetry_client.py` | No | Runs inside each Mininet host (started automatically by `topology.py`). Sends CPU/memory/rate telemetry over UDP. |
 | `telemetry_server.py` | Only for testing | A standalone UDP collector used in Stage 2 to check the telemetry path before the controller is involved. Do not run it at the same time as the controller (both use UDP port 9999). |
-| `run_experiments.sh` | **Yes** | Runs the 5 scenarios several times, one fresh controller per run, and saves `results/<scenario>_<n>/`. |
+| `run_experiments.sh` | **Yes** | Runs the 5 scenarios several times, one fresh controller per run, and saves `/<scenario>_<n>/`. |
 | `evaluate.py` | **Yes**, after the runs | Scores the saved alerts (TP / FP / FN / TN, time to detect) and writes `results/summary.md`. |
 | `ROADMAP.md` | No | The step-by-step implementation plan, including the design decisions and the reasons behind them. |
 | `README.md` | No | This file. |
@@ -523,9 +523,18 @@ Raising a threshold removes false alarms like `benign_backup` but adds misses li
 were not swept, so the table shows where each is exercised, not that it is optimal.
 
 ### Results
+| scenario | runs | expected alerts detected | mean time to detect | false alarms |
+|---|---|---|---|---|
+| normal | 3 | - | - | - |
+| abnormal | 3 | 6/6 | 5.6 s | CPU_SATURATION on 10.0.0.3 (x2) |
+| benign_backup | 3 | - | - | CPU_SATURATION on 10.0.0.3 (x3); HOST_FLOOD on 10.0.0.3 (x3); LINK_CONGESTION on 10.0.0.4 (x3) |
+| slow_attack | 3 | 0/3 | - | - |
+| telemetry_kill | 3 | 3/3 | 7.2 s | - |
 
-After running, paste `results/summary.md` here. Do not fill this in from the
-expected-result column above.
+| | something wrong | nothing wrong |
+|---|---|---|
+| alert raised | TP = 9 | FP = 11 |
+| no alert | FN = 3 | TN = 3 |
 
 ### Limits (state these in the write-up)
 
