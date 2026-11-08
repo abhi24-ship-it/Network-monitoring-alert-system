@@ -5,7 +5,7 @@
 
 Per run, the alerts in alerts.jsonl are compared with what SHOULD fire:
   expected alert fired         -> TP     expected alert missing    -> FN
-  alert that was not expected  -> FP     nothing expected, none fired -> TN
+  alert that was not expected  - FP     nothing expected, none fired -> TN
 Time to detect = first matching alert minus the 'start' mark in events.jsonl.
 """
 import json
