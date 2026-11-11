@@ -1,0 +1,1410 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NetMon SDN Simulator</title>
+<style>
+:root{
+  --bg:#f3f5f9; --panel:#ffffff; --soft:#f2f4f8; --ink:#111827; --muted:#5d6676; --line:#dde2ea;
+  --ok:#15803d; --ok-bg:#e7f6ec; --warn:#c26a00; --warn-bg:#fdf2e0; --crit:#d42020; --crit-bg:#fde9e9;
+  --data:#2563eb; --data-soft:#dbe7ff; --tel:#a845e6; --tel-soft:#f3e6fc; --of:#4338ca; --of-soft:#e5e4fb;
+  --ctl-bg:#f7f6ff; --link:#9aa3b2; --focus:#0f766e;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1218; --panel:#161c25; --soft:#1c2330; --ink:#e7ecf3; --muted:#9aa5b5; --line:#2b3442;
+    --ok:#4ade80; --ok-bg:#12301e; --warn:#fbbf24; --warn-bg:#36290c; --crit:#f87171; --crit-bg:#3a1717;
+    --data:#60a5fa; --data-soft:#16294a; --tel:#d08cff; --tel-soft:#2e1d3e; --of:#8b8cf8; --of-soft:#232350;
+    --ctl-bg:#191b2e; --link:#5c6677; --focus:#2dd4bf;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1218; --panel:#161c25; --soft:#1c2330; --ink:#e7ecf3; --muted:#9aa5b5; --line:#2b3442;
+  --ok:#4ade80; --ok-bg:#12301e; --warn:#fbbf24; --warn-bg:#36290c; --crit:#f87171; --crit-bg:#3a1717;
+  --data:#60a5fa; --data-soft:#16294a; --tel:#d08cff; --tel-soft:#2e1d3e; --of:#8b8cf8; --of-soft:#232350;
+  --ctl-bg:#191b2e; --link:#5c6677; --focus:#2dd4bf;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;padding:14px 16px 40px;max-width:1600px;margin:0 auto}
+h1{font-size:21px;margin:0;line-height:1.25}
+h2{font-size:15px;margin:0}
+h3{font-size:13.5px;margin:12px 0 6px}
+p{margin:6px 0}
+small,.muted{color:var(--muted)}
+code,.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px}
+.hdr{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;margin-bottom:12px}
+.hdr .sub{color:var(--muted);margin:4px 0 0}
+.simbadge{border:1.5px dashed var(--warn);color:var(--warn);background:var(--warn-bg);border-radius:8px;padding:6px 10px;font-weight:600;font-size:12px;max-width:420px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:14px;min-width:0}
+.cardhead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.hint{color:var(--muted);font-size:12px}
+.controls{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+.controls label{display:flex;gap:6px;align-items:center;font-weight:600;font-size:13px}
+select,input[type=range]{accent-color:var(--focus)}
+select{font:inherit;padding:5px 8px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink)}
+.btns{display:flex;flex-wrap:wrap;gap:6px}
+button{font:inherit;font-weight:600;font-size:13px;padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:var(--soft);color:var(--ink);cursor:pointer}
+button:hover:not(:disabled){border-color:var(--focus)}
+button:disabled{opacity:.4;cursor:not-allowed}
+button.primary{background:var(--focus);border-color:var(--focus);color:#fff}
+:root[data-theme="dark"] button.primary{color:#062a26}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) button.primary{color:#062a26}}
+.toggle{background:var(--tel-soft);padding:5px 10px;border-radius:8px;border:1px solid var(--line)}
+.clock{font-variant-numeric:tabular-nums;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.clock b{font-size:18px}
+.state{font-size:11px;font-weight:700;letter-spacing:.04em;padding:3px 8px;border-radius:99px;background:var(--soft);border:1px solid var(--line)}
+.state.running{background:var(--ok-bg);color:var(--ok);border-color:transparent}
+.state.paused{background:var(--warn-bg);color:var(--warn);border-color:transparent}
+.state.done{background:var(--of-soft);color:var(--of);border-color:transparent}
+.progress{position:relative;height:30px;flex:1 1 100%;margin-top:2px}
+.progress .bar{position:absolute;left:0;right:0;top:3px;height:7px;border-radius:4px;background:var(--soft);border:1px solid var(--line)}
+.progress .fill{position:absolute;left:0;top:3px;height:7px;border-radius:4px;background:var(--focus);width:0}
+.progress .mk{position:absolute;top:0;width:2px;height:14px;background:var(--muted)}
+.progress .mk span{position:absolute;top:14px;left:-2px;font-size:11px;color:var(--muted);white-space:nowrap}
+.scn{display:grid;grid-template-columns:1.2fr 1fr;gap:6px 22px}
+.scn h2{grid-column:1/-1}
+.scn .k{font-weight:700;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-top:6px}
+.scn .viva{grid-column:1/-1;background:var(--soft);border-left:4px solid var(--focus);padding:8px 10px;border-radius:6px}
+.done-banner{grid-column:1/-1;background:var(--of-soft);border-radius:8px;padding:8px 10px;font-weight:600}
+.layout{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(330px,1fr);gap:14px}
+.col{min-width:0}
+.svgwrap{overflow-x:auto}
+#topo{width:100%;height:auto;display:block;min-width:620px;max-width:1150px;margin:0 auto;max-height:78vh}
+#topo text{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+.t-title{font-size:16px;font-weight:700;fill:var(--ink)}
+.t-sub{font-size:11px;fill:var(--muted)}
+.t-b{font-size:12.5px;font-weight:700;fill:var(--ink)}
+.t-s{font-size:10.5px;fill:var(--muted)}
+.t-live{font-size:10.5px;fill:var(--of);font-weight:600}
+.t-mono{font-family:ui-monospace,Consolas,monospace !important;font-size:10.5px;fill:var(--ink)}
+.ctlbox{fill:var(--ctl-bg);stroke:var(--of);stroke-width:1.5}
+.sub{fill:var(--panel);stroke:var(--line);stroke-width:1.2;transition:fill .15s,stroke .15s}
+g.on>.sub{stroke:var(--of);stroke-width:2.6;fill:var(--of-soft)}
+#cb-collector.on .sub{stroke:var(--tel);fill:var(--tel-soft)}
+#cb-alert.on .sub{stroke:var(--crit);fill:var(--crit-bg)}
+#cb-alert.onw .sub{stroke:var(--warn);stroke-width:2.6;fill:var(--warn-bg)}
+.cmp{fill:var(--panel);stroke:var(--line);stroke-dasharray:3 3}
+.of-line{stroke:var(--of);stroke-width:2.2;stroke-dasharray:7 5;fill:none}
+.of-in{stroke:var(--of);stroke-width:1.2;stroke-dasharray:3 3;fill:none}
+.tel-line{stroke:var(--tel);stroke-width:2.4;stroke-dasharray:1.5 5;stroke-linecap:round;fill:none}
+.arrow{stroke:var(--muted);stroke-width:1.4;fill:none;color:var(--muted)}
+.hlink{stroke:var(--link);stroke-linecap:round;transition:stroke .3s}
+.hlink.mid{stroke:var(--warn)} .hlink.hi{stroke:var(--crit)}
+.swbox{fill:var(--panel);stroke:var(--ink);stroke-width:1.6}
+.hostbox{fill:var(--panel);stroke:var(--line);stroke-width:1.3}
+.ring{fill:none;stroke:var(--ok);stroke-width:2.2;rx:14}
+.ring.pend{stroke:var(--muted);stroke-dasharray:5 4}
+.ring.warn{stroke:var(--warn);stroke-width:3.2}
+.ring.crit{stroke:var(--crit);stroke-width:3.6;animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{50%{stroke-opacity:.35}}
+.paused .ring.crit{animation-play-state:paused}
+.ftcard{fill:var(--panel);stroke:var(--line)}
+.clickable{cursor:pointer}
+.clickable:hover .hostbox,.clickable:hover .swbox,.clickable:hover .rootbox{stroke:var(--focus);stroke-width:2.4}
+.clickable:hover>.ctlbox{stroke-width:2.6}
+.rootbox{fill:var(--tel-soft);stroke:var(--tel);stroke-width:1.4}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--muted);margin-top:6px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.lg-dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+.lg-dia{width:9px;height:9px;transform:rotate(45deg);display:inline-block;background:var(--of)}
+.lg-line{width:26px;height:0;border-top:2.5px dashed var(--of);display:inline-block}
+.lg-line.tel{border-top:3px dotted var(--tel)}
+.nowline{margin-top:8px;padding:8px 10px;border-radius:8px;background:var(--tel-soft);font-size:13px;min-height:20px}
+#narr{list-style:none;margin:0;padding:0;max-height:300px;overflow-y:auto;font-size:13px}
+#narr li{display:grid;grid-template-columns:64px 62px 1fr;gap:6px;padding:5px 2px;border-bottom:1px solid var(--line)}
+#narr li:last-child{background:var(--tel-soft)}
+#narr .sn{font-weight:700;color:var(--of)} #narr .nt{color:var(--muted);font-variant-numeric:tabular-nums}
+#narr .rep{color:var(--muted);grid-column:3}
+.hostgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.hcard{border:1px solid var(--line);border-left:5px solid var(--ok);border-radius:10px;padding:8px 10px;cursor:pointer;background:var(--panel)}
+.hcard.warn{border-left-color:var(--warn)} .hcard.crit{border-left-color:var(--crit)}
+.hcard:hover{border-color:var(--focus)}
+.hhead{display:flex;justify-content:space-between;align-items:baseline;gap:6px;margin-bottom:4px}
+.hhead b{font-size:16px}
+.mrow{display:grid;grid-template-columns:78px minmax(0,1fr) 64px;gap:6px;align-items:center;font-size:12.5px;padding:1.5px 0}
+.mrow>*{min-width:0}
+.mrow .pill{white-space:normal}
+.mrow .v{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+.meter{position:relative;height:7px;border-radius:4px;background:var(--soft);overflow:visible}
+.meter i{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:var(--ok)}
+.meter i.mid{background:var(--warn)} .meter i.hi{background:var(--crit)}
+.meter u{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink);opacity:.55}
+.pill{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;white-space:nowrap}
+.pill.ok{background:var(--ok-bg);color:var(--ok)} .pill.warn{background:var(--warn-bg);color:var(--warn)}
+.pill.crit{background:var(--crit-bg);color:var(--crit)} .pill.pend{background:var(--soft);color:var(--muted);border:1px dashed var(--muted)}
+.pill.info{background:var(--of-soft);color:var(--of)} .pill.skip{background:var(--soft);color:var(--muted)}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+.tabs button{padding:4px 10px}
+.tabs button.sel{background:var(--focus);color:#fff;border-color:var(--focus)}
+.pipe{display:grid;grid-template-columns:1fr;gap:4px;margin:10px 0}
+.stage{border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-size:12px;background:var(--soft);opacity:.55;position:relative;display:grid;grid-template-columns:150px 1fr;gap:8px}
+.stage b{font-size:12px}
+.stage:not(:last-child)::after{content:"↓";position:absolute;left:66px;bottom:-11px;font-size:11px;color:var(--muted);z-index:1}
+.stage.lit{opacity:1;background:var(--panel)}
+.stage.act{outline:2.5px solid var(--of);opacity:1}
+.stage.alert{border-color:var(--crit);background:var(--crit-bg)}
+.stage.walert{border-color:var(--warn);background:var(--warn-bg)}
+.rules{width:100%;border-collapse:collapse;font-size:12.5px}
+.rules td{border-top:1px solid var(--line);padding:6px 4px;vertical-align:top}
+.rules .rn{font-weight:700;font-size:12px;word-break:break-word}
+.cond{display:flex;gap:5px;align-items:baseline}
+.cond .ck{font-weight:800;width:14px}
+.ck.y{color:var(--ok)} .ck.n{color:var(--muted)}
+.why{color:var(--muted);font-size:11.5px;margin-top:2px}
+.dots{letter-spacing:2px;font-size:13px;color:var(--of)}
+.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.kpi{background:var(--soft);border-radius:8px;padding:7px 9px}
+.kpi small{display:block;font-size:11px}
+.kpi b{font-size:18px;font-variant-numeric:tabular-nums}
+#trend{width:100%;height:auto;display:block;margin-top:8px}
+.alog{max-height:380px;overflow-y:auto}
+.alog table{width:100%;border-collapse:collapse;font-size:12.5px}
+.alog th{text-align:left;font-size:11px;color:var(--muted);position:sticky;top:0;background:var(--panel);padding:4px}
+.alog td{border-top:1px solid var(--line);padding:6px 4px;vertical-align:top}
+.alog tr.crit td:first-child{border-left:4px solid var(--crit)} .alog tr.warn td:first-child{border-left:4px solid var(--warn)}
+.alog .det{font-family:ui-monospace,Consolas,monospace;font-size:11px;color:var(--muted);margin-top:3px}
+.empty{color:var(--muted);padding:10px;text-align:center;background:var(--soft);border-radius:8px}
+.custom .cgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px 18px}
+.custom fieldset{border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin:0}
+.custom legend{font-weight:700;font-size:12.5px;padding:0 4px}
+.frow{display:grid;grid-template-columns:118px 1fr 52px;gap:6px;align-items:center;font-size:12.5px;margin:4px 0}
+.frow output{font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
+.chks{display:flex;gap:10px;flex-wrap:wrap;font-size:13px}
+.perfgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:16px}
+.cm{display:grid;grid-template-columns:110px 1fr 1fr;gap:4px;font-size:12.5px}
+.cm div{padding:7px;border-radius:6px;background:var(--soft)}
+.cm .hd{background:none;font-weight:700;color:var(--muted);font-size:11.5px}
+.cm .tp{background:var(--ok-bg)} .cm .tn{background:var(--ok-bg)} .cm .fp{background:var(--warn-bg)} .cm .fn{background:var(--crit-bg)}
+.tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.tbl th,.tbl td{border-bottom:1px solid var(--line);padding:5px 4px;text-align:left;vertical-align:top}
+.tbl th{font-size:11.5px;color:var(--muted)}
+.drawer{position:fixed;top:12px;right:12px;bottom:12px;width:min(470px,calc(100vw - 24px));background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.25);z-index:50;display:flex;flex-direction:column}
+.drawer[hidden]{display:none}
+.drawer header{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)}
+.drawer .body{overflow-y:auto;padding:10px 14px 18px;font-size:13px}
+.drawer pre{background:var(--soft);border-radius:8px;padding:8px;overflow-x:auto;font-size:11.5px;margin:4px 0}
+.kv{display:grid;grid-template-columns:150px 1fr;gap:3px 10px;font-size:12.5px}
+.kv div:nth-child(odd){color:var(--muted)}
+.about ul{margin:6px 0;padding-left:20px}
+.about li{margin:3px 0}
+@media (max-width:1100px){.layout{grid-template-columns:1fr}.perfgrid{grid-template-columns:1fr}}
+@media (max-width:700px){
+  body{padding:10px 16px 30px}
+  h1{font-size:18px}
+  .scn{grid-template-columns:1fr}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .pipe{grid-template-columns:1fr}
+  .stage{min-height:0}
+  .drawer{top:auto;left:8px;right:8px;width:auto;height:72vh;bottom:8px}
+  .mrow{grid-template-columns:70px 1fr 60px}
+  #narr li{grid-template-columns:56px 1fr}
+  #narr .tx,#narr .rep{grid-column:1/-1}
+}
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div>
+    <h1>Network Monitoring &amp; Alert System — Interactive SDN Simulator</h1>
+    <p class="sub">A visual, step-by-step model of the Mininet + Open vSwitch + Ryu project (<code>topology.py</code>, <code>monitor_controller.py</code>, <code>telemetry_client.py</code>, <code>evaluate.py</code>).</p>
+  </div>
+  <div class="simbadge">OFFLINE EDUCATIONAL SIMULATION — all traffic, telemetry and alerts on this page are simulated in your browser. It is not connected to the Ubuntu VM, Open vSwitch or Ryu.</div>
+</header>
+
+<section class="card controls" aria-label="Simulation controls">
+  <label>Scenario
+    <select id="scenario">
+      <option value="normal">1 · Normal Traffic</option>
+      <option value="abnormal" selected>2 · Abnormal Traffic (flood)</option>
+      <option value="benign_backup">3 · Benign Backup (false positive)</option>
+      <option value="slow_attack">4 · Slow Attack (false negative)</option>
+      <option value="telemetry_kill">5 · Telemetry Failure</option>
+      <option value="custom">Custom Simulation</option>
+    </select>
+  </label>
+  <div class="btns">
+    <button id="bStart" class="primary">▶ Start Simulation</button>
+    <button id="bPause">❚❚ Pause</button>
+    <button id="bResume">▶ Resume</button>
+    <button id="bStep" title="Advance to the next controller check (one 2-second polling cycle) and pause">⏭ Next Step</button>
+    <button id="bReset">↺ Reset</button>
+  </div>
+  <label>Speed <input type="range" id="speed" min="0" max="4" step="1" value="2" aria-label="Simulation speed"><span id="speedLbl" style="min-width:34px">1×</span></label>
+  <label class="toggle"><input type="checkbox" id="explain"> Explain What's Happening</label>
+  <div class="clock">Sim time <b id="clock">0.0 s</b><span id="clockEnd" class="muted"></span><span id="state" class="state">READY</span></div>
+  <div class="progress" id="progress"><div class="bar"></div><div class="fill" id="progFill"></div></div>
+</section>
+
+<section class="card scn" id="scnInfo"></section>
+
+<section class="card custom" id="customPanel" hidden>
+  <div class="cardhead"><h2>Custom Simulation</h2><span class="hint">Changes are applied like <code>h3_sends()</code> in topology.py: the sender's telemetry client is restarted with the new <code>--cpu-override</code> and a new iperf flow starts.</span></div>
+  <div class="cgrid">
+    <fieldset><legend>Traffic</legend>
+      <div class="frow"><span>Sending host</span><select id="cSrc"><option>h1</option><option>h2</option><option selected>h3</option><option>h4</option></select><span></span></div>
+      <div class="frow"><span>Receiving host</span><select id="cDst"><option>h1</option><option>h2</option><option>h3</option><option selected>h4</option></select><span></span></div>
+      <div class="frow"><span>Rate (iperf -b)</span><input type="range" id="cRate" min="0" max="12" step="0.5" value="9"><output id="oRate">9 Mb/s</output></div>
+      <div class="frow"><span>Sender CPU (override)</span><input type="range" id="cCpu" min="0" max="100" step="1" value="92"><output id="oCpu">92%</output></div>
+      <label class="chks"><input type="checkbox" id="cBase" checked> Baseline: h1, h2 → h4 at 1 Mb/s</label>
+    </fieldset>
+    <fieldset><legend>Telemetry clients running</legend>
+      <div class="chks" id="cTel"></div>
+      <p class="muted" style="font-size:12px">Unticking a host stops its <code>telemetry_client.py</code> (like the telemetry_kill scenario). A host that sends data without telemetry is an "uninstrumented sender".</p>
+    </fieldset>
+    <fieldset><legend>Detection thresholds</legend>
+      <div class="frow"><span>util_high</span><input type="range" id="tUH" min="10" max="100" step="5" value="70"><output id="oUH"></output></div>
+      <div class="frow"><span>util_low</span><input type="range" id="tUL" min="5" max="60" step="5" value="20"><output id="oUL"></output></div>
+      <div class="frow"><span>cpu_high</span><input type="range" id="tCH" min="10" max="100" step="5" value="80"><output id="oCH"></output></div>
+      <div class="frow"><span>mismatch_ratio</span><input type="range" id="tMR" min="10" max="90" step="5" value="50"><output id="oMR"></output></div>
+      <div class="frow"><span>CONFIRM_CYCLES</span><input type="range" id="tCC" min="1" max="4" step="1" value="2"><output id="oCC"></output></div>
+      <div class="frow"><span>STALE_AFTER</span><input type="range" id="tSA" min="2" max="20" step="1" value="6"><output id="oSA"></output></div>
+    </fieldset>
+  </div>
+  <div class="btns" style="margin-top:10px"><button id="cApply" class="primary">Apply changes</button><button id="cDefaults">Restore all defaults</button><span id="cStatus" class="muted" style="align-self:center;font-size:12.5px"></span></div>
+</section>
+
+    <section class="card">
+      <div class="cardhead"><h2>Network topology (Mininet: 4 hosts, 1 switch, 10 Mb/s links)</h2><span class="hint">Click any host, the switch s1, the controller or 10.0.0.254 for details</span></div>
+      <div class="svgwrap">
+      <svg id="topo" viewBox="0 0 1000 640" role="img" aria-label="Network topology: hosts h1 to h4 connected to switch s1, controlled by the Ryu controller">
+        <defs>
+          <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker>
+        </defs>
+        <g id="links"></g>
+        <!-- telemetry-only path: s1-eth5 -> root-eth0 -> local UDP socket -->
+        <line class="tel-line" x1="580" y1="365" x2="740" y2="365"/>
+        <polyline class="tel-line" points="860,340 860,65 795,65"/>
+        <text class="t-s" x="660" y="356" text-anchor="middle">s1-eth5</text>
+        <text class="t-s" x="872" y="215" transform="rotate(90 872 215)" text-anchor="middle" style="fill:var(--tel)">UDP :9999 → collector socket</text>
+        <!-- OpenFlow control channel -->
+        <line class="of-line" x1="465" y1="330" x2="330" y2="224"/>
+        <text class="t-s" x="410" y="262" transform="rotate(38 410 262)" text-anchor="middle" style="fill:var(--of);font-weight:600">OpenFlow 1.3 · TCP 6653</text>
+        <text id="ofTicker" class="t-live" x="300" y="300" text-anchor="end"></text>
+
+        <g id="g-ctl" class="clickable" data-kind="controller">
+          <rect class="ctlbox" x="190" y="12" width="620" height="212" rx="14"/>
+          <text x="208" y="40" class="t-title">Ryu SDN Controller</text>
+          <text x="208" y="57" class="t-sub">monitor_controller.py · VM root namespace</text>
+          <rect class="cmp" x="330" y="70" width="268" height="62" rx="8"/>
+          <text id="cmp1" x="340" y="88" class="t-b" style="font-size:11px">Comparison (anomaly detector)</text>
+          <text id="cmp2" x="340" y="104" class="t-s">waiting for the first check…</text>
+          <text id="cmp3" x="340" y="120" class="t-s"></text>
+          <g id="cb-collector"><rect class="sub" x="610" y="32" width="185" height="64" rx="9"/><text x="702" y="52" class="t-b" text-anchor="middle">Telemetry Collector</text><text x="702" y="67" class="t-s" text-anchor="middle">UDP socket :9999</text><text id="lv-collector" x="702" y="84" class="t-live" text-anchor="middle" style="fill:var(--tel)">no reports yet</text></g>
+          <g id="cb-learn"><rect class="sub" x="205" y="144" width="118" height="62" rx="9"/><text x="264" y="164" class="t-b" text-anchor="middle">Learning Switch</text><text x="264" y="179" class="t-s" text-anchor="middle">Packet-In → FlowMod</text><text id="lv-learn" x="264" y="195" class="t-live" text-anchor="middle"></text></g>
+          <g id="cb-poller"><rect class="sub" x="337" y="144" width="118" height="62" rx="9"/><text x="396" y="164" class="t-b" text-anchor="middle">Flow-Stats Poller</text><text x="396" y="179" class="t-s" text-anchor="middle">every 2 s</text><text id="lv-poller" x="396" y="195" class="t-live" text-anchor="middle"></text></g>
+          <g id="cb-detector"><rect class="sub" x="485" y="144" width="118" height="62" rx="9"/><text x="544" y="164" class="t-b" text-anchor="middle">Anomaly Detector</text><text x="544" y="179" class="t-s" text-anchor="middle">6 rules · 2-check confirm</text><text id="lv-detector" x="544" y="195" class="t-live" text-anchor="middle"></text></g>
+          <g id="cb-alert"><rect class="sub" x="633" y="144" width="162" height="62" rx="9"/><text x="714" y="164" class="t-b" text-anchor="middle">Alert Generator</text><text x="714" y="179" class="t-s" text-anchor="middle">console + alerts.jsonl</text><text id="lv-alert" x="714" y="195" class="t-live" text-anchor="middle">0 alerts</text></g>
+          <line class="arrow" x1="455" y1="175" x2="483" y2="175" marker-end="url(#arr)"/>
+          <line class="arrow" x1="603" y1="175" x2="631" y2="175" marker-end="url(#arr)"/>
+          <line class="arrow" x1="650" y1="96" x2="566" y2="142" marker-end="url(#arr)"/>
+          <circle cx="330" cy="224" r="7" fill="var(--of)"/>
+          <path class="of-in" d="M330,224 L264,206 M330,224 L396,206"/>
+        </g>
+
+        <g id="g-ft" class="clickable" data-kind="switch">
+          <rect class="ftcard" x="14" y="246" width="330" height="150" rx="10"/>
+          <text x="26" y="266" class="t-b">s1 flow table (byte counters)</text>
+          <text x="26" y="281" class="t-s">match · n_bytes · rate at last poll</text>
+          <g id="ftRows"></g>
+        </g>
+
+        <g id="g-s1" class="clickable" data-kind="switch">
+          <rect class="swbox" x="420" y="330" width="160" height="70" rx="10"/>
+          <text x="500" y="358" class="t-title" text-anchor="middle">s1</text>
+          <text x="500" y="376" class="t-s" text-anchor="middle">Open vSwitch · OpenFlow 1.3</text>
+          <text id="lv-s1" x="500" y="391" class="t-live" text-anchor="middle" style="fill:var(--data)"></text>
+        </g>
+
+        <g id="g-root" class="clickable" data-kind="root">
+          <rect class="rootbox" x="740" y="340" width="170" height="50" rx="9"/>
+          <text x="825" y="361" class="t-b" text-anchor="middle">root-eth0 · 10.0.0.254</text>
+          <text x="825" y="377" class="t-s" text-anchor="middle">collector side (root namespace)</text>
+        </g>
+
+        <g id="hosts"></g>
+        <g id="pk"></g>
+      </svg>
+      </div>
+      <div class="legend">
+        <span><i class="lg-dot" style="background:var(--data)"></i>Normal data traffic (iperf UDP :5001, host → s1 → host)</span>
+        <span><i class="lg-dot" style="background:var(--tel);box-shadow:0 0 0 2px var(--panel),0 0 0 3px var(--tel)"></i><i class="lg-line tel"></i>UDP telemetry → 10.0.0.254:9999 (through s1's data plane)</span>
+        <span><i class="lg-dia"></i><i class="lg-line"></i>OpenFlow 1.3 control messages (TCP 6653)</span>
+        <span><i class="lg-dot" style="background:var(--crit)"></i>Packet dropped at s1 (destination link full)</span>
+        <span>Link colour: grey &lt; 50%, amber ≥ 50%, red ≥ util_high. Each dot stands for many real packets; animations are slowed down so they can be followed.</span>
+      </div>
+      <div class="nowline" id="nowLine" hidden></div>
+    </section>
+
+<main class="layout">
+  <div class="col">
+    <section class="card" id="narrCard" hidden>
+      <div class="cardhead"><h2>Explain What's Happening — step by step</h2><span class="hint">Tip: pause and use ⏭ Next Step to walk through one 2-second controller cycle at a time</span></div>
+      <ol id="narr"></ol>
+    </section>
+
+    <section class="card">
+      <div class="cardhead"><h2>Host metrics (simulated)</h2><span class="hint">CPU/memory/reported rate = latest telemetry the controller holds · Tx/Rx/utilisation = switch flow counters at the last poll</span></div>
+      <div class="hostgrid" id="hostGrid"></div>
+    </section>
+  </div>
+
+  <div class="col">
+    <section class="card">
+      <div class="cardhead"><h2>Controller decision</h2>
+        <div class="tabs" id="focusTabs"></div>
+      </div>
+      <div id="decision"></div>
+    </section>
+
+    <section class="card">
+      <div class="cardhead"><h2>Network statistics</h2><span class="hint">updated at every controller check</span></div>
+      <div class="kpis" id="kpis"></div>
+      <svg id="trend" viewBox="0 0 420 150" aria-label="Traffic trend"></svg>
+    </section>
+
+    <section class="card">
+      <div class="cardhead"><h2>Alert log</h2><span class="hint">what the controller writes to the console and alerts.jsonl</span></div>
+      <div class="alog" id="alertLog"></div>
+    </section>
+  </div>
+</main>
+
+<section class="card" id="perf">
+  <div class="cardhead"><h2>Performance &amp; limitations of threshold-based detection</h2><span class="hint">scored exactly like evaluate.py</span></div>
+  <div class="perfgrid">
+    <div>
+      <div class="cm">
+        <div class="hd"></div><div class="hd">Something wrong (attack / fault)</div><div class="hd">Nothing wrong</div>
+        <div class="hd">Alert raised</div><div class="tp"><b>True Positive (TP)</b><br>a real problem, correctly reported</div><div class="fp"><b>False Positive (FP)</b><br>a false alarm</div>
+        <div class="hd">No alert</div><div class="fn"><b>False Negative (FN)</b><br>a real problem that was missed</div><div class="tn"><b>True Negative (TN)</b><br>quiet and correct</div>
+      </div>
+      <p style="font-size:12.5px"><b>Time to detect</b> = time of the first matching alert − the scenario's <code>start</code> mark (when the attack/fault begins). It is never instant: the controller only looks every 2 s, a rule must be true on 2 checks in a row, and telemetry-based rules must wait for the host's next 2-second report.</p>
+      <h3>This run</h3>
+      <div id="perfRun"></div>
+    </div>
+    <div>
+      <h3>All five scenarios, as produced by this simulator</h3>
+      <div id="perfSim"></div>
+      <h3>Your recorded results (results/summary.md — real Mininet/Ryu runs, 3 per scenario)</h3>
+      <table class="tbl">
+        <tr><th>scenario</th><th>expected detected</th><th>mean time to detect</th><th>false alarms</th></tr>
+        <tr><td>normal</td><td>-</td><td>-</td><td>-</td></tr>
+        <tr><td>abnormal</td><td>6/6</td><td>5.6 s</td><td>CPU_SATURATION on 10.0.0.3 (x2)</td></tr>
+        <tr><td>benign_backup</td><td>-</td><td>-</td><td>CPU_SATURATION on 10.0.0.3 (x3); HOST_FLOOD on 10.0.0.3 (x3); LINK_CONGESTION on 10.0.0.4 (x3)</td></tr>
+        <tr><td>slow_attack</td><td>0/3</td><td>-</td><td>-</td></tr>
+        <tr><td>telemetry_kill</td><td>3/3</td><td>7.2 s</td><td>-</td></tr>
+      </table>
+      <p style="font-size:12.5px">Totals: TP = 9, FP = 11, FN = 3, TN = 3. The real runs measured lower utilisation than the ideal 9 Mb/s (e.g. "uplink 61–76%") because the VM could not always sustain the full iperf rate; the simulator uses ideal rates, so its percentages are higher, but the pattern of alerts is the same.</p>
+    </div>
+  </div>
+  <h3>Limitations to state in the viva</h3>
+  <ul style="font-size:13px;margin:4px 0;padding-left:20px">
+    <li><b>Fixed thresholds cannot remove both error types.</b> Raising util_high/cpu_high silences the benign backup (FP) but makes more attacks like the slow attack invisible (FN); lowering them does the opposite.</li>
+    <li><b>The rules see numbers, not intent.</b> A legitimate 8 Mb/s backup at 85% CPU is indistinguishable from a flood.</li>
+    <li><b>CPU is staged</b> with <code>--cpu-override</code>, because all Mininet hosts share the VM's CPU. The override keeps reporting 92%/85% after iperf stops, which is why CPU_SATURATION fires near the end of the abnormal and backup scenarios.</li>
+    <li><b>UDP telemetry is unreliable and can be forged</b>; sequence numbers reveal loss but not forgery. If telemetry stops, HOST_FLOOD can no longer fire for that host.</li>
+    <li>One switch, one topology, a few runs: results are indicative, not statistical. The system detects and reports; it does not block traffic.</li>
+  </ul>
+</section>
+
+<section class="card about">
+  <h2>What is real in the project and what is simulated here</h2>
+  <ul>
+    <li><b>Same rules and constants as monitor_controller.py:</b> POLL_INTERVAL 2 s, telemetry every 2 s, STALE_AFTER 6 s, MIN_BPS 50 kb/s, CONFIRM_CYCLES 2, COOLDOWN 10 s, LINK_CAPACITY 10 Mb/s, util_high 70%, util_low 20%, cpu_high 80%, mismatch_ratio 50%, mismatch_min 0.5 Mb/s. Rates are computed the same way: <code>rate = Δbytes × 8 ÷ Δt</code> per flow, telemetry flows (udp_dst 9999) are skipped, new flows use their own age as the baseline.</li>
+    <li><b>Same scenario timing as topology.py:</b> telemetry starts at t = 0, baseline iperf at ≈1 s, the event under test at ≈16 s (the <code>start</code> mark), iperf lasts 30 s, the run ends 35 s (or 30 s) later.</li>
+    <li><b>Simulated, deterministic:</b> byte counters grow at the iperf rate plus UDP/IP/Ethernet headers (1512 bytes on the wire per 1470-byte datagram). A sender is limited to 10 Mb/s by its link; the switch counts packets toward a full link before they are dropped, which is why downlink utilisation can exceed 100%. Memory is the shared VM value (the same for every host).</li>
+    <li><b>Not simulated:</b> real CPU load, packet loss of telemetry, ARP/ping traffic, the Mininet CLI. Nothing here talks to a real network.</li>
+  </ul>
+</section>
+
+<aside class="drawer" id="inspector" hidden aria-live="polite">
+  <header><h2 id="inspTitle">Details</h2><button id="inspClose" aria-label="Close details">✕ Close</button></header>
+  <div class="body" id="inspBody"></div>
+</aside>
+
+<script>
+'use strict';
+/* ====================================================================
+   1. Constants copied from the project (source of truth: monitor_controller.py, topology.py)
+   ==================================================================== */
+const TELEMETRY_PORT = 9999;
+const ROOT_IP = '10.0.0.254';
+const LINK_CAPACITY_BPS = 10_000_000;
+const POLL_INTERVAL = 2.0;
+const STALE_AFTER = 3 * 2.0;
+const MIN_BPS = 50_000;
+const CONFIRM_CYCLES = 2;
+const COOLDOWN = 10.0;
+const T_DEFAULT = { util_high: 0.70, util_low: 0.20, cpu_high: 80.0, mismatch_ratio: 0.50, mismatch_min_bps: 500_000 };
+const IDLE_TIMEOUT = 10;              // idle_timeout of the priority-10 flows
+const TEL_INTERVAL = 2.0;             // --interval 2
+const DEFAULT_CPU = { h1: 20, h2: 25, h3: 10, h4: 15 };   // cpu overrides used by every scenario
+
+// Simulation-only parameters
+const TICK = 0.05;                    // fixed simulation step (s) -> deterministic
+const sec = s => Math.round(s / TICK);
+const PKT_WIRE = 1512, PKT_PAYLOAD = 1470;  // iperf UDP datagram + UDP/IP/Ethernet headers
+const WIRE = PKT_WIRE / PKT_PAYLOAD;
+const TEL_BYTES = 250;                // one telemetry datagram on the wire (approx.)
+const TEL_DELAY = 0.6;                // visual travel time host -> collector
+const OF_HOP = 0.3;                   // visual travel time controller <-> switch
+const DATA_DUR = 1.4;                 // visual travel time of a data dot
+const VIS_PER_MBPS = 0.85;            // dots per second per Mb/s
+
+const RULES = ['HOST_FLOOD', 'HIGH_VOLUME_LOW_CPU', 'CPU_SATURATION', 'LINK_CONGESTION', 'TELEMETRY_MISMATCH', 'TELEMETRY_STALE'];
+const SEV = { HOST_FLOOD: 'CRITICAL', HIGH_VOLUME_LOW_CPU: 'WARNING', CPU_SATURATION: 'WARNING', LINK_CONGESTION: 'CRITICAL', TELEMETRY_MISMATCH: 'WARNING', TELEMETRY_STALE: 'WARNING' };
+const RULE_PLAIN = {
+  HOST_FLOOD: 'Host sends a lot AND its CPU is maxed out',
+  HIGH_VOLUME_LOW_CPU: 'Host sends a lot but CPU is not high',
+  CPU_SATURATION: 'CPU is maxed out but the host barely sends',
+  LINK_CONGESTION: "Host's incoming link is nearly full",
+  TELEMETRY_MISMATCH: 'Switch and host disagree about the sending rate',
+  TELEMETRY_STALE: 'No fresh telemetry from a known/active host',
+};
+
+const HOSTS = [
+  { id: 'h1', ip: '10.0.0.1', mac: '00:00:00:00:00:01', port: 1, x: 130, phase: 0.25 },
+  { id: 'h2', ip: '10.0.0.2', mac: '00:00:00:00:00:02', port: 2, x: 370, phase: 0.30 },
+  { id: 'h3', ip: '10.0.0.3', mac: '00:00:00:00:00:03', port: 3, x: 630, phase: 0.35 },
+  { id: 'h4', ip: '10.0.0.4', mac: '00:00:00:00:00:04', port: 4, x: 870, phase: 0.40 },
+];
+const byId = Object.fromEntries(HOSTS.map(h => [h.id, h]));
+const byIp = Object.fromEntries(HOSTS.map(h => [h.ip, h]));
+const nameOf = ip => (byIp[ip] ? byIp[ip].id : ip === ROOT_IP ? 'root' : ip);
+
+const mb = bps => (bps / 1e6).toFixed(2);
+const pct0 = x => Math.round(x * 100) + '%';
+const pct1 = x => (x * 100).toFixed(1) + '%';
+const fmtT = t => t.toFixed(1);
+const memPct = t => +(41.6 + 1.2 * Math.sin(t / 11)).toFixed(1);
+function mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+/* ====================================================================
+   2. Scenarios (topology.py)
+   ==================================================================== */
+function baseline(s) {            // baseline(): telemetry for all, h1,h2 -> h4 at 1 Mbps for 60 s
+  s.startTelemetryAll(DEFAULT_CPU);
+  s.atSec(1.1, () => { s.startIperf('h1', 'h4', 1e6, 60); s.startIperf('h2', 'h4', 1e6, 60); });
+}
+function h3Sends(s, rate, cpu) {  // h3_sends(): restart h3 telemetry with --cpu-override, iperf to h4 for 30 s
+  s.killTelemetry('h3', true);
+  s.startTelemetry('h3', cpu);
+  s.narr(`h3's telemetry client is restarted with <b>--cpu-override ${cpu}</b> (pkill + start). Its first new report arrives ≈2 s later.`);
+  s.startIperf('h3', 'h4', rate, 30);
+}
+const SCN = {
+  normal: {
+    title: 'Scenario 1 — Normal Traffic', cmd: 'sudo python3 topology.py --scenario normal', end: 46.1, startMark: null, expected: [], focus: 'h4',
+    marks: [[1.1, 'iperf starts'], [41.1, 'iperf ends'], [46.1, 'end']],
+    what: 'h1 and h2 each send 1 Mb/s of UDP (iperf) to h4 for 40 s. CPU overrides: h1 20%, h2 25%, h3 10%, h4 15%.',
+    truth: 'Nothing is wrong. evaluate.py: <code>EXPECTED["normal"] = set()</code>.',
+    expect: 'No alerts → a <b>True Negative</b>. h4 receives ≈2.06 Mb/s (≈21% of its link), far below 70%, and no CPU is near 80%. This is ordinary activity: moderate traffic, idle CPUs, and both views of each host agree.',
+    viva: 'Watch the first check at t = 2 s: h1/h2 are already sending, but their first telemetry report has not arrived yet, so TELEMETRY_STALE is true once (1/2). The report arrives before the next check and the streak resets. This is exactly why the controller needs 2 consecutive violations (CONFIRM_CYCLES = 2).',
+    setup(s) {
+      s.startTelemetryAll(DEFAULT_CPU);
+      s.atSec(1.1, () => { s.startIperf('h1', 'h4', 1e6, 40); s.startIperf('h2', 'h4', 1e6, 40); });
+    },
+  },
+  abnormal: {
+    title: 'Scenario 2 — Abnormal Traffic (h3 floods h4)', cmd: 'sudo python3 topology.py --scenario abnormal', end: 51.1, startMark: 16.1,
+    expected: [['10.0.0.3', 'HOST_FLOOD'], ['10.0.0.4', 'LINK_CONGESTION']], focus: 'h3',
+    marks: [[1.1, 'baseline'], [16.1, 'ATTACK (start mark)'], [46.1, 'flood ends'], [51.1, 'end']],
+    what: '15 s of baseline (h1, h2 → h4 at 1 Mb/s). At t ≈ 16 s h3 restarts its telemetry with <code>--cpu-override 92</code> and floods h4 with 9 Mb/s for 30 s.',
+    truth: 'Attack. evaluate.py expects <b>HOST_FLOOD on 10.0.0.3</b> and <b>LINK_CONGESTION on 10.0.0.4</b>.',
+    expect: 'LINK_CONGESTION after ≈4 s (h4\'s link receives ≈11.3 Mb/s → 113%, so s1 drops packets). HOST_FLOOD after ≈6 s: uplink ≈93% and CPU 92%, confirmed on 2 checks. Both are <b>True Positives</b>.',
+    viva: 'Two side effects come straight from the code: (1) at the first check after the flood starts, h3\'s old report still says CPU 10%, so HIGH_VOLUME_LOW_CPU and TELEMETRY_MISMATCH are true once and then reset; (2) after the flood ends, the staged CPU override still says 92% with almost no traffic, so CPU_SATURATION fires about 4 s later. That counts as a false alarm, and your real runs logged it too.',
+    setup(s) { baseline(s); s.atSec(16.1, () => { s.mark('ATTACK: h3 floods h4 at 9 Mb/s, h3 telemetry reports 92% CPU'); h3Sends(s, 9e6, 92); }); },
+  },
+  benign_backup: {
+    title: 'Scenario 3 — Benign Backup (false-positive test)', cmd: 'sudo python3 topology.py --scenario benign_backup', end: 51.1, startMark: 16.1, expected: [], focus: 'h3',
+    marks: [[1.1, 'baseline'], [16.1, 'backup starts'], [46.1, 'backup ends'], [51.1, 'end']],
+    what: 'Same baseline. At t ≈ 16 s h3 performs a <b>legitimate</b> 8 Mb/s backup to h4 while compressing (CPU override 85%).',
+    truth: 'Nothing is wrong. evaluate.py: <code>EXPECTED["benign_backup"] = set()</code>. Any alert is a false positive.',
+    expect: 'HOST_FLOOD (uplink ≈82% ≥ 70% and CPU 85% ≥ 80%) and LINK_CONGESTION (h4 ≈103%) fire → <b>False Positives</b>. The thresholds really are exceeded; the detection is "correct" by the rules but wrong about reality.',
+    viva: 'Why is it a false positive even though the conditions are met? The rules only see numbers (rate and CPU), not intent. A busy, legitimate backup produces the same numbers as a flood. Raising the thresholds to silence it would also hide real attacks.',
+    setup(s) { baseline(s); s.atSec(16.1, () => { s.mark('BACKUP: h3 → h4 at 8 Mb/s, CPU 85% (legitimate)'); h3Sends(s, 8e6, 85); }); },
+  },
+  slow_attack: {
+    title: 'Scenario 4 — Slow Attack (false-negative test)', cmd: 'sudo python3 topology.py --scenario slow_attack', end: 51.1, startMark: 16.1,
+    expected: [['10.0.0.3', 'HOST_FLOOD']], focus: 'h3',
+    marks: [[1.1, 'baseline'], [16.1, 'slow attack starts'], [46.1, 'attack ends'], [51.1, 'end']],
+    what: 'Same baseline. At t ≈ 16 s h3 sends 2 Mb/s to h4 with CPU 30%. The test labels this as malicious.',
+    truth: 'Attack, but quiet. evaluate.py expects <b>HOST_FLOOD on 10.0.0.3</b>.',
+    expect: 'h3 uplink ≈21% (< 70%), CPU 30% (< 80%), h4 downlink ≈41% (< 70%). No rule fires → <b>False Negative</b> (a miss).',
+    viva: 'A threshold detector only catches what crosses a threshold. An attacker who stays under 70% link and 80% CPU is invisible. Lowering the thresholds would catch it, but normal traffic would then raise alarms.',
+    setup(s) { baseline(s); s.atSec(16.1, () => { s.mark('SLOW ATTACK: h3 → h4 at 2 Mb/s, CPU 30%'); h3Sends(s, 2e6, 30); }); },
+  },
+  telemetry_kill: {
+    title: 'Scenario 5 — Telemetry Failure', cmd: 'sudo python3 topology.py --scenario telemetry_kill', end: 46.1, startMark: 16.1,
+    expected: [['10.0.0.3', 'TELEMETRY_STALE']], focus: 'h3',
+    marks: [[1.1, 'baseline'], [16.1, 'h3 telemetry killed'], [46.1, 'end']],
+    what: 'Same baseline. At t ≈ 16 s h3\'s telemetry client is killed (<code>pkill -f telemetry_client.py</code>). h3 itself is healthy and sends no data.',
+    truth: 'Monitoring fault. evaluate.py expects <b>TELEMETRY_STALE on 10.0.0.3</b>.',
+    expect: 'Watch h3\'s "telemetry … s ago" timer grow. When the last report is older than 6 s on 2 consecutive checks, TELEMETRY_STALE (WARNING) fires (≈8 s after the kill) and repeats every 10 s.',
+    viva: 'Telemetry failure ≠ excessive traffic. Here the switch counters show h3 is idle; what is missing is h3\'s self-report, so the controller has lost one of its two views and skips h3\'s telemetry-based rules. Excessive traffic would instead show up in the switch counters (HOST_FLOOD / LINK_CONGESTION).',
+    setup(s) { baseline(s); s.atSec(16.1, () => { s.mark('FAULT: h3 telemetry client killed'); s.killTelemetry('h3'); }); },
+  },
+  custom: {
+    title: 'Custom Simulation', cmd: '(experiment, not one of the scripted scenarios)', end: Infinity, startMark: null, expected: null, focus: 'h3', marks: [],
+    what: 'Pick a sender, receiver, rate, sender CPU, which telemetry clients run and the detection thresholds, then press Apply. The run continues until you reset it.',
+    truth: 'No ground-truth label, so TP/FP/FN/TN cannot be scored.',
+    expect: 'All rates, utilisation, rule checks, confirmations and cooldowns are recomputed with your values. Try: rate 9 + CPU 92 (HOST_FLOOD), rate 9 + CPU 40 (HIGH_VOLUME_LOW_CPU), rate 0.5 + CPU 95 (CPU_SATURATION), or untick the sender\'s telemetry (TELEMETRY_STALE).',
+    viva: 'Right after you apply a change, the switch sees the new rate immediately but the host\'s next report is up to 2 s away. The detector can briefly flag TELEMETRY_MISMATCH (1/2) and then reset. Confirmation exists to absorb exactly this kind of short disagreement.',
+    setup(s) { s.customSetup(); },
+  },
+};
+
+/* ====================================================================
+   3. Simulation engine (deterministic, fixed 50 ms steps)
+   ==================================================================== */
+class Sim {
+  constructor(scn, opt = {}) {
+    this.scn = scn; this.hooks = opt.hooks || null; this.cfg = opt.custom || null;
+    this.tick = 0; this.ev = new Map(); this.evSeq = 0; this.done = false; this.endTick = isFinite(scn.end) ? sec(scn.end) : Infinity;
+    this.T = { ...T_DEFAULT }; this.STALE_AFTER = STALE_AFTER; this.CONFIRM = CONFIRM_CYCLES;
+    if (this.cfg) this.applyThresholds(this.cfg);
+    this.H = {};
+    for (const h of HOSTS) this.H[h.id] = { ...h, telOn: false, cpu: null, gen: 0, tx: 0, rx: 0, tx0: 0, rx0: 0, readTick: 0, seq: 0, firstSeen: false };
+    this.iperf = []; this.table = new Map(); this.offered = {};
+    this.ctl = { telemetry: {}, lastCounter: new Map(), streak: new Map(), lastAlert: new Map(), lastEval: {}, lastStats: null, polls: 0, evals: 0, lastEvalT: -10, telRx: 0, flowMods: 0 };
+    this.alerts = []; this.history = []; this.rng = mulberry32(20261031); this.markT = null;
+    this.atTick(sec(POLL_INTERVAL - 2 * OF_HOP), () => this.pollRequest(), 1);
+    scn.setup(this);
+  }
+  get t() { return this.tick * TICK; }
+  atTick(k, fn, prio = 5) { if (!this.ev.has(k)) this.ev.set(k, []); this.ev.get(k).push({ prio, fn, n: this.evSeq++ }); }
+  atSec(s, fn, prio = 5) { this.atTick(sec(s), fn, prio); }
+  narr(text, key) { if (this.hooks) this.hooks.narr(text, key); }
+  mark(text) { this.markT = this.t; this.narr(`<b>${text}</b> — topology.py writes the <code>start</code> mark used by evaluate.py for time-to-detect.`); }
+
+  step() {
+    if (this.done) return;
+    while (this.ev.has(this.tick)) {
+      const list = this.ev.get(this.tick); this.ev.delete(this.tick);
+      list.sort((a, b) => a.prio - b.prio || a.n - b.n);
+      for (const e of list) e.fn();
+    }
+    this.integrate();
+    this.tick++;
+    if (this.tick >= this.endTick) { this.done = true; if (this.hooks) this.hooks.done(); }
+  }
+
+  // ---- telemetry_client.py --------------------------------------------
+  startTelemetryAll(cpus) {
+    for (const h of HOSTS) this.startTelemetry(h.id, cpus[h.id]);
+    this.narr('topology.py starts <b>telemetry_client.py</b> in every host (CPU overrides h1 20%, h2 25%, h3 10%, h4 15%). Each one sends a small JSON report over <b>UDP to 10.0.0.254:9999</b> every 2 s.');
+  }
+  startTelemetry(id, cpu) {
+    const H = this.H[id]; H.gen++; const g = H.gen; H.telOn = true; H.cpu = cpu; H.firstSeen = false;
+    this.atTick(this.tick + sec(H.phase), () => {           // client start-up: read interface counters as baseline
+      if (H.gen !== g) return;
+      H.tx0 = H.tx; H.rx0 = H.rx; H.readTick = this.tick; H.seq = 0;
+      this.atTick(this.tick + sec(TEL_INTERVAL), () => this.telSend(id, g), 6);
+    }, 6);
+  }
+  killTelemetry(id, quiet) {
+    const H = this.H[id]; H.gen++; H.telOn = false;
+    if (!quiet) this.narr(`${id}'s telemetry client is stopped. Nobody tells the controller: it can only notice that ${id}'s reports stop arriving.`);
+  }
+  telSend(id, g) {
+    const H = this.H[id]; if (H.gen !== g) return;
+    const dt = Math.max((this.tick - H.readTick) * TICK, 1e-6);
+    const msg = { host: id, seq: H.seq, ts: +this.t.toFixed(2), iface: id + '-eth0', cpu_pct: H.cpu, mem_pct: memPct(this.t),
+      tx_bps: (H.tx - H.tx0) * 8 / dt, rx_bps: (H.rx - H.rx0) * 8 / dt };
+    H.tx0 = H.tx; H.rx0 = H.rx; H.readTick = this.tick; H.seq++;
+    H.tx += TEL_BYTES;                                       // the datagram itself crosses h-eth0 and s1
+    const e = this.ensureEntry(H.ip, ROOT_IP, TELEMETRY_PORT);
+    e.bytes += TEL_BYTES; e.packets += 1; e.lastActive = this.tick;
+    if (this.hooks) this.hooks.telSend(id, msg, this.t);
+    this.atTick(this.tick + sec(TEL_DELAY), () => {        // collector: self.telemetry[ip] = msg
+      this.ctl.telemetry[H.ip] = { ...msg, _rx_ts: this.t }; this.ctl.telRx++;
+      if (this.hooks) this.hooks.telArrive(id, msg, this.t, !H.firstSeen);
+      H.firstSeen = true;
+    }, 7);
+    this.atTick(this.tick + sec(TEL_INTERVAL), () => this.telSend(id, g), 6);
+  }
+
+  // ---- iperf traffic + switch forwarding ------------------------------
+  startIperf(src, dst, bps, dur, quiet) {
+    const f = { src, dst, offered: bps, start: this.tick, end: dur ? this.tick + sec(dur) : Infinity, credit: 0.6 };
+    this.iperf.push(f);
+    if (!quiet) this.narr(`<b>${src}</b> starts sending <b>${(bps / 1e6).toFixed(1)} Mb/s</b> of UDP (iperf, port 5001) to <b>${dst}</b>${dur ? ` for ${dur} s` : ''}. Packets leave ${src} on its 10 Mb/s link towards s1.`);
+    if (dur) this.atTick(f.end, () => { if (f.end === this.tick) this.narr(`${src} → ${dst} transfer finished (iperf -t ${dur} ended). The flow rule stays in s1 until it has been idle for 10 s.`); }, 5);
+    return f;
+  }
+  stopIperf(f) { if (f && f.end > this.tick) f.end = this.tick; }
+  ensureEntry(srcIp, dstIp, port) {
+    const key = `${srcIp}>${dstIp}:${port}`;
+    let e = this.table.get(key);
+    if (!e) {   // first packet: table-miss -> Packet-In -> learning switch installs a priority-10 flow
+      e = { key, src: srcIp, dst: dstIp, proto: 17, udp_dst: port, bytes: 0, packets: 0, created: this.tick, lastActive: this.tick, lastBps: 0 };
+      this.table.set(key, e); this.ctl.flowMods++;
+      if (this.hooks) this.hooks.packetIn(e, this.t);
+      if (port !== TELEMETRY_PORT) this.narr(`s1 has no rule for ${nameOf(srcIp)} → ${nameOf(dstIp)} yet, so the first packet goes to the controller (<b>Packet-In</b>). The learning switch answers with a <b>FlowMod</b> (match ipv4_src/dst, udp_dst ${port}, priority 10, idle_timeout 10 s). From then on s1 forwards these packets itself and <b>counts their bytes</b>.`);
+    }
+    return e;
+  }
+  integrate() {
+    const k = this.tick;
+    const act = this.iperf.filter(f => f.start <= k && k < f.end);
+    const sum = {}, inc = {};
+    for (const f of act) sum[f.src] = (sum[f.src] || 0) + f.offered * WIRE;
+    const w = new Map();
+    for (const f of act) {
+      const s = sum[f.src], r = f.offered * WIRE * (s > LINK_CAPACITY_BPS ? LINK_CAPACITY_BPS / s : 1);  // sender link caps at 10 Mbps
+      w.set(f, r); inc[f.dst] = (inc[f.dst] || 0) + r;
+    }
+    for (const f of act) {
+      const r = w.get(f), b = r / 8 * TICK, S = this.H[f.src];
+      const e = this.ensureEntry(S.ip, this.H[f.dst].ip, 5001);
+      e.bytes += b; e.packets += b / PKT_WIRE; e.lastActive = k; S.tx += b;
+      if (this.hooks) {
+        f.credit += r / 1e6 * VIS_PER_MBPS * TICK;
+        while (f.credit >= 1) {
+          f.credit -= 1;
+          const over = inc[f.dst] > LINK_CAPACITY_BPS;
+          const drop = over && this.rng() < 1 - LINK_CAPACITY_BPS / inc[f.dst];
+          this.hooks.data(f.src, f.dst, drop, this.t);
+        }
+      }
+    }
+    for (const d in inc) this.H[d].rx += Math.min(inc[d], LINK_CAPACITY_BPS) / 8 * TICK;   // delivered after s1's egress queue
+    this.offered = inc;
+    for (const [key, e] of this.table) {
+      if ((k - e.lastActive) * TICK >= IDLE_TIMEOUT) {
+        this.table.delete(key);
+        if (e.udp_dst !== TELEMETRY_PORT) this.narr(`Flow rule ${nameOf(e.src)} → ${nameOf(e.dst)} was idle for 10 s, so s1 removed it (idle_timeout).`);
+      }
+    }
+  }
+
+  // ---- controller: flow-stats poller + correlation engine ---------------
+  pollRequest() {
+    if (this.hooks) this.hooks.of('req', this.t);
+    this.atTick(this.tick + sec(OF_HOP), () => { if (this.hooks) this.hooks.of('reply', this.t, this.table.size); }, 1);
+    this.atTick(this.tick + sec(2 * OF_HOP), () => this.pollReply(), 0);
+    this.atTick(this.tick + sec(POLL_INTERVAL), () => this.pollRequest(), 1);
+  }
+  pollReply() {   // _flow_stats_reply()
+    const now = this.t, C = this.ctl, tx = {}, rx = {}, rows = [];
+    for (const st of this.table.values()) {
+      let prev = C.lastCounter.get(st.key);
+      if (!prev) { const age = (this.tick - st.created) * TICK; prev = [0, now - Math.max(age, 1e-3)]; }
+      const [pbytes, pts] = prev;
+      C.lastCounter.set(st.key, [st.bytes, now]);
+      const delta = st.bytes >= pbytes ? st.bytes - pbytes : st.bytes;
+      const bps = delta * 8 / Math.max(now - pts, 1e-3);
+      st.lastBps = bps;
+      rows.push({ src: st.src, dst: st.dst, port: st.udp_dst, bytes: st.bytes, bps });
+      if (st.udp_dst === TELEMETRY_PORT) continue;   // don't count monitoring overhead as load
+      tx[st.src] = (tx[st.src] || 0) + bps;
+      rx[st.dst] = (rx[st.dst] || 0) + bps;
+    }
+    C.polls++;
+    C.lastStats = { t: now, rows, tx, rx };
+    this.evaluate(tx, rx, now);
+  }
+  evaluate(tx, rx, now) {   // _evaluate()
+    const C = this.ctl, T = this.T;
+    const ips = new Set([...Object.keys(C.telemetry), ...Object.keys(tx), ...Object.keys(rx)]); ips.delete(ROOT_IP);
+    const recs = [], fired = [], resets = [];
+    for (const ip of [...ips].sort()) {
+      const sw_tx = tx[ip] || 0, sw_rx = rx[ip] || 0, tx_util = sw_tx / LINK_CAPACITY_BPS, rx_util = sw_rx / LINK_CAPACITY_BPS;
+      const tel = C.telemetry[ip];
+      const age = tel ? now - tel._rx_ts : null;
+      const findings = {}, rules = {};
+      const rec = { ip, id: nameOf(ip), now, sw_tx, sw_rx, tx_util, rx_util, tel: tel ? { ...tel } : null, age, rules, findings };
+      const stale = !tel || age > this.STALE_AFTER;
+      rec.stale = stale;
+      if (stale) {
+        const known = !!tel, active = sw_tx > MIN_BPS || sw_rx > MIN_BPS, met = known || active;
+        rules.TELEMETRY_STALE = { met, conds: [
+          { l: 'Telemetry age', v: tel ? age.toFixed(1) + ' s' : 'never received', thr: `> ${this.STALE_AFTER} s`, ok: true },
+          { l: 'Host known or active', v: known ? 'known (reported before)' : active ? `active (${mb(Math.max(sw_tx, sw_rx))} Mb/s)` : 'unknown and idle', thr: 'known OR > 50 kb/s', ok: met }] };
+        if (met) findings.TELEMETRY_STALE = ['WARNING', 'no fresh telemetry but host is known/active (host down, telemetry blocked, or uninstrumented sender)'];
+        for (const r of ['HOST_FLOOD', 'HIGH_VOLUME_LOW_CPU', 'CPU_SATURATION', 'TELEMETRY_MISMATCH']) rules[r] = { met: false, skipped: true, conds: [] };
+      } else {
+        const cpu = tel.cpu_pct, host_tx = tel.tx_bps;
+        const upHi = tx_util >= T.util_high, cpuHi = cpu >= T.cpu_high;
+        rules.HOST_FLOOD = { met: upHi && cpuHi, conds: [
+          { l: 'Uplink utilisation', v: pct1(tx_util), thr: '≥ ' + pct0(T.util_high), ok: upHi },
+          { l: 'CPU (telemetry)', v: cpu + '%', thr: '≥ ' + T.cpu_high + '%', ok: cpuHi }] };
+        if (upHi && cpuHi) findings.HOST_FLOOD = ['CRITICAL', `uplink ${pct0(tx_util)} AND cpu ${cpu.toFixed(0)}% -> runaway/compromised application`];
+        rules.HIGH_VOLUME_LOW_CPU = { met: upHi && !cpuHi, conds: [
+          { l: 'Uplink utilisation', v: pct1(tx_util), thr: '≥ ' + pct0(T.util_high), ok: upHi },
+          { l: 'CPU (telemetry)', v: cpu + '%', thr: '< ' + T.cpu_high + '%', ok: !cpuHi }] };
+        if (upHi && !cpuHi) findings.HIGH_VOLUME_LOW_CPU = ['WARNING', `uplink ${pct0(tx_util)} with cpu only ${cpu.toFixed(0)}% -> bulk transfer or offloaded/non-app traffic`];
+        const lowUp = tx_util < T.util_low;
+        rules.CPU_SATURATION = { met: cpuHi && lowUp, conds: [
+          { l: 'CPU (telemetry)', v: cpu + '%', thr: '≥ ' + T.cpu_high + '%', ok: cpuHi },
+          { l: 'Uplink utilisation', v: pct1(tx_util), thr: '< ' + pct0(T.util_low), ok: lowUp }] };
+        if (cpuHi && lowUp) findings.CPU_SATURATION = ['WARNING', `cpu ${cpu.toFixed(0)}% but uplink ${pct0(tx_util)} -> host compute problem, not a network one`];
+        const big = Math.max(sw_tx, host_tx), ratio = big > 0 ? Math.abs(sw_tx - host_tx) / big : 0;
+        const bigOk = big > T.mismatch_min_bps, ratioOk = bigOk && ratio > T.mismatch_ratio;
+        rules.TELEMETRY_MISMATCH = { met: ratioOk, conds: [
+          { l: 'Larger of the two rates', v: mb(big) + ' Mb/s', thr: '> 0.5 Mb/s', ok: bigOk },
+          { l: `Switch ${mb(sw_tx)} vs host ${mb(host_tx)}`, v: 'differ ' + (ratio * 100).toFixed(0) + '%', thr: '> ' + pct0(T.mismatch_ratio), ok: ratio > T.mismatch_ratio }] };
+        if (ratioOk) findings.TELEMETRY_MISMATCH = ['WARNING', `switch sees ${mb(sw_tx)} Mbps, host reports ${mb(host_tx)} Mbps -> spoofing, loss or unaccounted traffic`];
+        rules.TELEMETRY_STALE = { met: false, conds: [{ l: 'Telemetry age', v: age.toFixed(1) + ' s', thr: `> ${this.STALE_AFTER} s`, ok: false }] };
+      }
+      const rxHi = rx_util >= T.util_high;
+      rules.LINK_CONGESTION = { met: rxHi, conds: [{ l: 'Downlink utilisation', v: pct1(rx_util), thr: '≥ ' + pct0(T.util_high), ok: rxHi }] };
+      if (rxHi) findings.LINK_CONGESTION = ['CRITICAL', `downlink ${pct0(rx_util)} -> possible flood victim`];
+      this.debounce(ip, findings, now, rec, fired, resets);
+      C.lastEval[ip] = rec; recs.push(rec);
+    }
+    C.evals++; C.lastEvalT = now;
+    let total = 0, maxDown = 0;
+    for (const r of recs) { total += r.sw_tx; maxDown = Math.max(maxDown, r.rx_util); }
+    this.history.push({ t: now, total, maxDown, fired: fired.length });
+    if (this.history.length > 400) this.history.shift();
+    if (this.hooks) this.hooks.evalDone(recs, fired, resets, now);
+  }
+  debounce(ip, findings, now, rec, fired, resets) {   // _debounce()
+    const C = this.ctl;
+    for (const [k, v] of C.streak) {
+      const [kip, rule] = k.split('|');
+      if (kip === ip && !(rule in findings)) { if (v > 0) resets.push({ ip, rule, prev: v }); C.streak.set(k, 0); }
+    }
+    for (const rule of RULES) { const r = rec.rules[rule]; r.streak = C.streak.get(ip + '|' + rule) || 0; r.outcome = r.skipped ? 'SKIPPED' : 'NOT_MET'; }
+    for (const [rule, [sev, text]] of Object.entries(findings)) {
+      const k = ip + '|' + rule, s = (C.streak.get(k) || 0) + 1;
+      C.streak.set(k, s);
+      const last = C.lastAlert.has(k) ? C.lastAlert.get(k) : -Infinity;   // (real code: unix time, default 0)
+      const r = rec.rules[rule]; r.streak = s;
+      if (s >= this.CONFIRM && now - last >= COOLDOWN) {
+        C.lastAlert.set(k, now); r.outcome = 'ALERT';
+        const a = this.alert(ip, rule, sev, text, now, rec); fired.push(a);
+      } else if (s < this.CONFIRM) r.outcome = 'PENDING';
+      else { r.outcome = 'COOLDOWN'; r.cdLeft = COOLDOWN - (now - last); }
+    }
+  }
+  alert(ip, rule, severity, detail, now, rec) {
+    const a = { ts: now, host: ip, id: nameOf(ip), rule, severity, detail, streak: rec.rules[rule].streak, confirm: this.CONFIRM,
+      snap: { tx_util: rec.tx_util, rx_util: rec.rx_util, cpu: rec.tel ? rec.tel.cpu_pct : null, sw_tx: rec.sw_tx, host_tx: rec.tel ? rec.tel.tx_bps : null, age: rec.age, util_high: this.T.util_high, cpu_high: this.T.cpu_high, stale_after: this.STALE_AFTER } };
+    this.alerts.push(a);
+    if (this.hooks) this.hooks.alert(a);
+    return a;
+  }
+
+  // ---- custom mode ----------------------------------------------------
+  applyThresholds(c) {
+    this.T.util_high = c.uh / 100; this.T.util_low = c.ul / 100; this.T.cpu_high = c.ch; this.T.mismatch_ratio = c.mr / 100;
+    this.CONFIRM = c.cc; this.STALE_AFTER = c.sa;
+  }
+  customSetup() {
+    const c = this.cfg;
+    for (const h of HOSTS) if (c.tel[h.id]) this.startTelemetry(h.id, h.id === c.src ? c.cpu : DEFAULT_CPU[h.id]);
+    this.narr(`Custom run: telemetry clients start on ${HOSTS.filter(h => c.tel[h.id]).map(h => h.id).join(', ') || 'no host'} (sender ${c.src} reports CPU ${c.cpu}%).`);
+    this.atSec(1.1, () => this.startCustomTraffic());
+  }
+  startCustomTraffic() {
+    const c = this.cfg;
+    if (c.base) this.baseFlows = [this.startIperf('h1', 'h4', 1e6, 0, true), this.startIperf('h2', 'h4', 1e6, 0, true)];
+    if (c.base) this.narr('Baseline traffic starts: h1 and h2 each send 1 Mb/s to h4.');
+    if (c.rate > 0 && c.src !== c.dst) this.custFlow = this.startIperf(c.src, c.dst, c.rate * 1e6, 0);
+  }
+  applyCustom(c) {
+    this.cfg = c; this.applyThresholds(c);
+    for (const h of HOSTS) {
+      const H = this.H[h.id], want = c.tel[h.id], cpu = h.id === c.src ? c.cpu : DEFAULT_CPU[h.id];
+      if (want && (!H.telOn || H.cpu !== cpu)) {
+        const restart = H.telOn; this.killTelemetry(h.id, true); this.startTelemetry(h.id, cpu);
+        this.narr(`${h.id}'s telemetry client is ${restart ? 're' : ''}started with --cpu-override ${cpu}.`);
+      } else if (!want && H.telOn) this.killTelemetry(h.id);
+    }
+    if (this.t >= 1.1) {
+      if (c.base && !this.baseFlows) { this.baseFlows = [this.startIperf('h1', 'h4', 1e6, 0, true), this.startIperf('h2', 'h4', 1e6, 0, true)]; this.narr('Baseline traffic (h1, h2 → h4 at 1 Mb/s) starts.'); }
+      if (!c.base && this.baseFlows) { this.baseFlows.forEach(f => this.stopIperf(f)); this.baseFlows = null; this.narr('Baseline traffic stopped.'); }
+      if (this.custFlow) { this.stopIperf(this.custFlow); this.narr(`Previous ${this.custFlow.src} → ${this.custFlow.dst} transfer stopped.`); this.custFlow = null; }
+      if (c.rate > 0 && c.src !== c.dst) this.custFlow = this.startIperf(c.src, c.dst, c.rate * 1e6, 0);
+    }
+    this.narr(`Thresholds now: util_high ${c.uh}%, util_low ${c.ul}%, cpu_high ${c.ch}%, mismatch_ratio ${c.mr}%, CONFIRM_CYCLES ${c.cc}, STALE_AFTER ${c.sa} s.`);
+  }
+}
+
+// evaluate.py scoring for one finished (or running) run
+function scoreRun(scn, alerts, markT) {
+  if (!scn.expected) return null;
+  const exp = new Set(scn.expected.map(([h, r]) => h + '|' + r));
+  const seen = new Set(alerts.map(a => a.host + '|' + a.rule));
+  const tp = [...exp].filter(x => seen.has(x)), fn = [...exp].filter(x => !seen.has(x)), fp = [...seen].filter(x => !exp.has(x));
+  const tn = exp.size === 0 && seen.size === 0 ? 1 : 0;
+  const ttd = {};
+  for (const x of tp) { const first = Math.min(...alerts.filter(a => a.host + '|' + a.rule === x).map(a => a.ts)); if (markT != null) ttd[x] = first - markT; }
+  return { exp, seen, tp, fn, fp, tn, ttd };
+}
+
+/* ====================================================================
+   4. User interface
+   ==================================================================== */
+const $ = s => document.querySelector(s);
+const NS = 'http://www.w3.org/2000/svg';
+const SPEEDS = [0.25, 0.5, 1, 2, 4];
+let scnKey = 'abnormal', sim, state = 'ready', speed = 1, acc = 0, explainOn = false, focusId = 'h3', autoFocus = true;
+let vis = [], flashUntil = {}, ofTick = { text: '', until: -1 }, lastTel = '', narrItems = [], stepNo = 0, lastAlertCount = -1, insp = null;
+const CUSTOM_DEFAULT = { src: 'h3', dst: 'h4', rate: 9, cpu: 92, base: true, tel: { h1: true, h2: true, h3: true, h4: true }, uh: 70, ul: 20, ch: 80, mr: 50, cc: 2, sa: 6 };
+let customCfg = JSON.parse(JSON.stringify(CUSTOM_DEFAULT));
+
+// ---- static SVG parts -----------------------------------------------
+function svg(tag, attrs, parent, text) {
+  const el = document.createElementNS(NS, tag);
+  for (const k in attrs) el.setAttribute(k, attrs[k]);
+  if (text != null) el.textContent = text;
+  if (parent) parent.appendChild(el);
+  return el;
+}
+const S1B = { x: 500, y: 400 }, HTOP = 520;
+(function buildTopology() {
+  const links = $('#links'), hosts = $('#hosts');
+  for (const h of HOSTS) {
+    svg('line', { id: 'lk-' + h.id, class: 'hlink', x1: S1B.x, y1: S1B.y, x2: h.x, y2: HTOP, 'stroke-width': 3 }, links);
+    const mx = S1B.x + (h.x - S1B.x) * 0.8, my = S1B.y + (HTOP - S1B.y) * 0.8;
+    svg('text', { class: 't-s', x: mx + (h.x < 500 ? -10 : 10), y: my - 2, 'text-anchor': h.x < 500 ? 'end' : 'start' }, links, `10 Mb/s · s1-eth${h.port}`);
+    const g = svg('g', { class: 'clickable', 'data-kind': 'host', 'data-id': h.id }, hosts);
+    svg('rect', { id: 'ring-' + h.id, class: 'ring', x: h.x - 70, y: 514, width: 140, height: 88, rx: 14 }, g);
+    svg('rect', { class: 'hostbox', x: h.x - 64, y: 520, width: 128, height: 76, rx: 10 }, g);
+    // tiny computer icon
+    svg('rect', { x: h.x - 56, y: 529, width: 16, height: 11, rx: 2, fill: 'none', stroke: 'var(--muted)', 'stroke-width': 1.5 }, g);
+    svg('line', { x1: h.x - 52, y1: 543, x2: h.x - 44, y2: 543, stroke: 'var(--muted)', 'stroke-width': 1.5 }, g);
+    svg('text', { class: 't-b', x: h.x - 34, y: 541, style: 'font-size:15px' }, g, h.id);
+    svg('text', { class: 't-s', x: h.x + 56, y: 541, 'text-anchor': 'end' }, g, h.ip);
+    svg('text', { id: 'hu-' + h.id, class: 't-s', x: h.x, y: 562, 'text-anchor': 'middle', style: 'font-size:11.5px;fill:var(--ink)' }, g, '↑0% ↓0%');
+    svg('text', { id: 'hc-' + h.id, class: 't-s', x: h.x, y: 581, 'text-anchor': 'middle' }, g, '');
+    svg('text', { id: 'ha-' + h.id, class: 't-b', x: h.x, y: 624, 'text-anchor': 'middle', style: 'font-size:12px' }, g, '');
+  }
+  for (let i = 0; i < 6; i++) svg('text', { id: 'ft' + i, class: 't-mono', x: 26, y: 302 + i * 16 }, $('#ftRows'), '');
+})();
+
+// ---- packet animation -------------------------------------------------
+const P = { s1: { x: 500, y: 365 }, port: { x: 330, y: 224 }, learn: { x: 264, y: 206 }, poller: { x: 396, y: 206 }, s1top: { x: 465, y: 330 } };
+const hostTop = id => ({ x: byId[id].x, y: HTOP });
+function prep(pts) { const seg = []; let L = 0; for (let i = 1; i < pts.length; i++) { const d = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y); seg.push(d); L += d; } return { pts, seg, L }; }
+function posAt(p, f) {
+  let d = Math.max(0, Math.min(1, f)) * p.L;
+  for (let i = 0; i < p.seg.length; i++) {
+    if (d <= p.seg[i] || i === p.seg.length - 1) { const r = p.seg[i] ? Math.min(1, d / p.seg[i]) : 0; const a = p.pts[i], b = p.pts[i + 1]; return { x: a.x + (b.x - a.x) * r, y: a.y + (b.y - a.y) * r }; }
+    d -= p.seg[i];
+  }
+  return p.pts[p.pts.length - 1];
+}
+function addVis(kind, pts, t0, dur, drop) {
+  if (vis.length > 450) return;
+  let el;
+  if (kind === 'of') el = svg('rect', { x: -5.5, y: -5.5, width: 11, height: 11, fill: 'var(--of)', stroke: 'var(--panel)', 'stroke-width': 1.5 }, $('#pk'));
+  else if (kind === 'tel') el = svg('circle', { r: 6, fill: 'var(--tel)', stroke: 'var(--panel)', 'stroke-width': 2 }, $('#pk'));
+  else el = svg('circle', { r: 4.6, fill: 'var(--data)' }, $('#pk'));
+  el.setAttribute('visibility', 'hidden');
+  vis.push({ el, p: prep(pts), t0, dur, kind, drop });
+}
+function renderPackets(tv) {
+  for (let i = vis.length - 1; i >= 0; i--) {
+    const v = vis[i], f = (tv - v.t0) / v.dur;
+    if (f < 0) { v.el.setAttribute('visibility', 'hidden'); continue; }
+    if (f >= (v.drop ? 1.5 : 1)) { v.el.remove(); vis.splice(i, 1); continue; }
+    const q = posAt(v.p, f);
+    v.el.setAttribute('visibility', 'visible');
+    if (v.kind === 'of') v.el.setAttribute('transform', `translate(${q.x.toFixed(1)},${q.y.toFixed(1)}) rotate(45)`);
+    else { v.el.setAttribute('cx', q.x.toFixed(1)); v.el.setAttribute('cy', q.y.toFixed(1)); }
+    if (v.drop && f >= 1) { v.el.setAttribute('fill', 'var(--crit)'); v.el.setAttribute('r', 4.6 + (f - 1) * 14); v.el.setAttribute('opacity', (1.5 - f) * 2); }
+  }
+}
+function flash(box, t, dur = 0.7) { flashUntil[box] = Math.max(flashUntil[box] || 0, t + dur); }
+
+// ---- engine hooks (only the visible simulation has these) ------------
+const HOOKS = {
+  narr: (text, key) => addNarr(text, key),
+  data(src, dst, drop, t) {
+    const a = hostTop(src), b = hostTop(dst);
+    if (drop) addVis('data', [a, S1B, { x: S1B.x + (b.x - S1B.x) * 0.22, y: S1B.y + (b.y - S1B.y) * 0.22 }], t, DATA_DUR * 0.62, true);
+    else addVis('data', [a, S1B, b], t, DATA_DUR);
+  },
+  telSend(id, msg, t) { addVis('tel', [hostTop(id), S1B, { x: 580, y: 365 }, { x: 740, y: 365 }, { x: 860, y: 352 }, { x: 860, y: 65 }, { x: 795, y: 65 }], t, TEL_DELAY); },
+  telArrive(id, msg, t, first) {
+    flash('collector', t, 0.45);
+    lastTel = `${id} #${msg.seq}: cpu ${msg.cpu_pct}% · tx ${mb(msg.tx_bps)} Mb/s`;
+    if (first) addNarr(`Collector receives ${id}'s ${msg.seq === 0 ? 'first ' : ''}telemetry report over UDP: <b>CPU ${msg.cpu_pct}%</b> (staged override), memory ${msg.mem_pct}%, self-measured tx <b>${mb(msg.tx_bps)} Mb/s</b>. It travelled through s1 like any data packet, <i>not</i> over OpenFlow; the controller identifies ${id} by the packet's source IP ${byId[id].ip}.`);
+  },
+  of(kind, t, n) {
+    if (kind === 'req') { addVis('of', [P.poller, P.port, P.s1top], t, OF_HOP); flash('poller', t, 0.6); ofTick = { text: 'OFPFlowStatsRequest ↓', until: t + OF_HOP }; }
+    else { addVis('of', [P.s1top, P.port, P.poller], t, OF_HOP); ofTick = { text: `OFPFlowStatsReply ↑ (${n} flows)`, until: t + OF_HOP + 0.3 }; }
+  },
+  packetIn(e, t) {
+    addVis('of', [P.s1top, P.port, P.learn], t, OF_HOP);
+    addVis('of', [P.learn, P.port, P.s1top], t + OF_HOP, OF_HOP);
+    flash('learn', t + 0.2, 0.5);
+    ofTick = { text: `Packet-In ↑ / FlowMod ↓ (${nameOf(e.src)}→${nameOf(e.dst)})`, until: t + 2 * OF_HOP + 0.4 };
+  },
+  evalDone(recs, fired, resets, t) {
+    flash('detector', t, 0.75);
+    if (fired.length) flash(fired.some(a => a.severity === 'CRITICAL') ? 'alert' : 'alertw', t + 0.6, 1.0);
+    if (sim.ctl.evals === 1) addNarr(`Every 2 s the poller sends <b>OFPFlowStatsRequest</b> over OpenFlow; s1 replies with ${sim.ctl.lastStats.rows.length} flow counters. The controller turns each counter into a rate: <b>rate = Δbytes × 8 ÷ Δt</b>, then utilisation = rate ÷ 10 Mb/s. Telemetry flows (udp_dst 9999) are skipped so monitoring is not counted as load.`);
+    const lines = [];
+    for (const rec of recs) {
+      for (const rule of RULES) {
+        const r = rec.rules[rule];
+        if (r.outcome === 'PENDING') lines.push([`${rec.id}: <b>${rule}</b> condition true (${r.streak}/${sim.CONFIRM}) — ${shortWhy(rule, rec)}. Not alerting yet: one reading could be a blip, so it must hold on the next check too.`, null]);
+        if (r.outcome === 'COOLDOWN') lines.push([`${rec.id}: ${rule} still true (streak ${r.streak}); repeat alert suppressed by the 10 s cooldown.`, 'cd-' + rec.id + rule]);
+      }
+    }
+    for (const r of resets) lines.push([`${nameOf(r.ip)}: ${r.rule} no longer true → streak reset to 0${r.prev < sim.CONFIRM ? ' — debouncing stopped a one-off reading from becoming an alert' : ''}.`, null]);
+    if (!lines.length && !fired.length) addNarr('Controller check: switch counters and the latest telemetry were compared for every host. All values are within thresholds, so there are no findings.', 'clear');
+    for (const [l, k] of lines) addNarr(l, k);
+    if (fired.length && autoFocus) { focusId = fired[fired.length - 1].id; }
+  },
+  alert(a) { addNarr(`<b>${a.severity} ALERT — ${a.rule} on ${a.id}</b> (confirmed ${a.streak}/${a.confirm}). ${explainAlert(a)}`); },
+  done() {
+    state = 'done'; updateButtons();
+    const sc = scoreRun(SCN[scnKey], sim.alerts, sim.markT);
+    addNarr(`Scenario finished (topology.py calls net.stop()). ${sc ? `Scored like evaluate.py: TP ${sc.tp.length}, FP ${sc.fp.length}, FN ${sc.fn.length}, TN ${sc.tn}.` : ''}`);
+    renderScenarioInfo();
+  },
+};
+function shortWhy(rule, rec) {
+  const t = rec.tel;
+  switch (rule) {
+    case 'HOST_FLOOD': return `uplink ${pct0(rec.tx_util)} ≥ ${pct0(sim.T.util_high)} and CPU ${t.cpu_pct}% ≥ ${sim.T.cpu_high}%`;
+    case 'HIGH_VOLUME_LOW_CPU': return `uplink ${pct0(rec.tx_util)} but CPU only ${t.cpu_pct}% (report is ${rec.age.toFixed(1)} s old)`;
+    case 'CPU_SATURATION': return `CPU ${t.cpu_pct}% but uplink only ${pct0(rec.tx_util)}`;
+    case 'LINK_CONGESTION': return `downlink ${pct0(rec.rx_util)} ≥ ${pct0(sim.T.util_high)}`;
+    case 'TELEMETRY_MISMATCH': return `switch sees ${mb(rec.sw_tx)} Mb/s, host's last report says ${mb(t.tx_bps)} Mb/s`;
+    case 'TELEMETRY_STALE': return rec.tel ? `last report ${rec.age.toFixed(1)} s old (> ${sim.STALE_AFTER} s) and host is known` : `host is sending/receiving but has never reported`;
+  }
+  return '';
+}
+function explainAlert(a) {
+  const s = a.snap, id = a.id;
+  switch (a.rule) {
+    case 'HOST_FLOOD': return `${id} is using ${pct0(s.tx_util)} of its 10 Mb/s uplink AND reports ${s.cpu}% CPU. Two independent sources, the switch's byte counters and ${id}'s own report, agree that a program on ${id} is working flat-out to send traffic. That pattern fits a flood or a compromised application. It held on ${a.confirm} checks in a row, so it is not a one-off spike.`;
+    case 'HIGH_VOLUME_LOW_CPU': return `${id} sends ${pct0(s.tx_util)} of its link, but its CPU is only ${s.cpu}%. Heavy sending without heavy computing usually means a bulk transfer. Worth a look, but not necessarily an attack.`;
+    case 'CPU_SATURATION': return `${id} reports ${s.cpu}% CPU, but its uplink carries only ${pct0(s.tx_util)}. The host is busy computing, not networking: a local problem, not a network one. (In these demos the CPU value is a staged --cpu-override, so it stays high even after the traffic stops.)`;
+    case 'LINK_CONGESTION': return `Traffic equal to ${pct0(s.rx_util)} of ${id}'s 10 Mb/s downlink is being sent towards it. The link is (nearly) full, packets queue or are dropped at s1, and ${id} may be the victim of a flood.`;
+    case 'TELEMETRY_MISMATCH': return `The switch counted ${mb(s.sw_tx)} Mb/s leaving ${id}, but ${id} reported ${mb(s.host_tx)} Mb/s. The two disagree by more than ${pct0(sim ? sim.T.mismatch_ratio : 0.5)}: the report may be late, lost or spoofed, or ${id} sends traffic it does not report.`;
+    case 'TELEMETRY_STALE': return `No telemetry from ${id} for ${s.age != null ? s.age.toFixed(1) + ' s' : 'the whole run'} (limit ${s.stale_after} s), although ${id} is known or active. Its reporting program may have died or been blocked, or the host may be down. This is a monitoring failure, not a traffic problem.`;
+  }
+  return '';
+}
+
+// ---- narration ------------------------------------------------------------
+const narrEl = $('#narr'), nowLine = $('#nowLine');
+function addNarr(text, key) {
+  const t = sim ? sim.t : 0;
+  const last = narrItems[narrItems.length - 1];
+  if (key && last && last.key === key) {
+    last.rep++; last.el.querySelector('.nt').textContent = 't=' + fmtT(t) + 's';
+    last.el.querySelector('.rep').textContent = `(repeated at every check: ×${last.rep})`;
+    nowLine.innerHTML = `<b>Step ${stepNo}:</b> ${text}`;
+    return;
+  }
+  stepNo++;
+  const li = document.createElement('li');
+  li.innerHTML = `<span class="sn">Step ${stepNo}</span><span class="nt">t=${fmtT(t)}s</span><span class="tx">${text}</span><span class="rep"></span>`;
+  narrEl.appendChild(li);
+  narrItems.push({ key, rep: 1, el: li });
+  if (narrItems.length > 120) narrItems.shift().el.remove();
+  if (explainOn) narrEl.scrollTop = narrEl.scrollHeight;
+  nowLine.innerHTML = `<b>Step ${stepNo}:</b> ${text}`;
+}
+
+// ---- simulation lifecycle -----------------------------------------------
+function makeSim() {
+  sim = new Sim(SCN[scnKey], { hooks: HOOKS, custom: scnKey === 'custom' ? JSON.parse(JSON.stringify(customCfg)) : null });
+  for (const v of vis) v.el.remove();
+  vis = []; flashUntil = {}; ofTick = { text: '', until: -1 }; lastTel = ''; acc = 0; state = 'ready'; lastAlertCount = -1;
+  narrEl.innerHTML = ''; narrItems = []; stepNo = 0;
+  focusId = scnKey === 'custom' ? customCfg.src : SCN[scnKey].focus;
+  addNarr(`<b>${SCN[scnKey].title}</b>: ${SCN[scnKey].what} Press Start (or Next Step).`);
+  renderScenarioInfo(); updateButtons(); renderUI(true); renderPackets(0);
+}
+function start() { if (state === 'ready') { state = 'running'; updateButtons(); } }
+function pause() { if (state === 'running') { state = 'paused'; updateButtons(); } }
+function resume() { if (state === 'paused') { state = 'running'; updateButtons(); } }
+function nextStep() {
+  if (state === 'done') return;
+  state = 'paused';
+  const n = sim.ctl.evals;
+  while (sim.ctl.evals === n && !sim.done) sim.step();
+  const stopAt = sim.tick + sec(0.8);                       // let the decision pipeline animation finish
+  while (sim.tick < stopAt && !sim.done) sim.step();
+  acc = 0;
+  if (!sim.done) updateButtons();
+  renderUI(true);
+}
+function updateButtons() {
+  $('#bStart').disabled = state !== 'ready';
+  $('#bPause').disabled = state !== 'running';
+  $('#bResume').disabled = state !== 'paused';
+  $('#bStep').disabled = state === 'done';
+  const st = $('#state'); st.textContent = { ready: 'READY', running: 'RUNNING', paused: 'PAUSED', done: 'FINISHED' }[state]; st.className = 'state ' + state;
+  document.body.classList.toggle('paused', state !== 'running');
+}
+
+// ---- main loop --------------------------------------------------------
+let lastFrame = performance.now(), lastUi = 0;
+function frame(ts) {
+  const dt = Math.min((ts - lastFrame) / 1000, 0.1); lastFrame = ts;
+  if (state === 'running') {
+    acc += dt * speed;
+    while (acc >= TICK && !sim.done) { sim.step(); acc -= TICK; }
+    if (sim.done) acc = 0;
+  }
+  const tv = sim.t + (state === 'running' ? acc : 0);
+  renderPackets(tv);
+  for (const b of ['collector', 'learn', 'poller', 'detector']) $('#cb-' + b).classList.toggle('on', tv < (flashUntil[b] || 0));
+  $('#cb-alert').classList.toggle('on', tv < (flashUntil.alert || 0) && tv >= (flashUntil.alert || 0) - 1.0);
+  $('#cb-alert').classList.toggle('onw', tv < (flashUntil.alertw || 0) && tv >= (flashUntil.alertw || 0) - 1.0);
+  $('#ofTicker').textContent = tv < ofTick.until ? ofTick.text : '';
+  if (ts - lastUi > 120) { lastUi = ts; renderUI(false, tv); }
+  requestAnimationFrame(frame);
+}
+
+/* ---- rendering of panels ---- */
+function swView(ip) { const s = sim.ctl.lastStats; return { tx: s ? (s.tx[ip] || 0) : 0, rx: s ? (s.rx[ip] || 0) : 0 }; }
+function hostStatus(ip) {
+  const rec = sim.ctl.lastEval[ip];
+  if (!rec) return { cls: 'ok', label: 'Normal', rules: [] };
+  const conf = Object.keys(rec.findings).filter(r => rec.rules[r].streak >= sim.CONFIRM);
+  const pend = Object.keys(rec.findings).filter(r => rec.rules[r].streak < sim.CONFIRM);
+  if (conf.some(r => SEV[r] === 'CRITICAL')) return { cls: 'crit', label: 'CRITICAL', rules: conf };
+  if (conf.length) return { cls: 'warn', label: 'WARNING', rules: conf };
+  if (pend.length) return { cls: 'pend', label: `Checking ${pend.map(r => rec.rules[r].streak).join('')}/${sim.CONFIRM}`, rules: pend };
+  return { cls: 'ok', label: 'Normal', rules: [] };
+}
+function telStatus(id) {
+  const H = sim.H[id], tel = sim.ctl.telemetry[H.ip];
+  if (!tel) return H.telOn ? { cls: 'pend', text: 'waiting for first report', age: null } : { cls: 'skip', text: 'no telemetry client', age: null };
+  const age = sim.t - tel._rx_ts;
+  const cls = age > sim.STALE_AFTER ? 'crit' : age > 3 ? 'warn' : 'ok';
+  const text = age > sim.STALE_AFTER ? `STALE · ${age.toFixed(1)} s ago` : `${cls === 'ok' ? 'fresh' : 'late'} · ${age.toFixed(1)} s ago`;
+  return { cls, text: text + (H.telOn ? '' : ' · client stopped'), age, tel };
+}
+
+function renderUI(force, tv) {
+  if (tv == null) tv = sim.t;
+  $('#clock').textContent = fmtT(sim.t) + ' s';
+  const end = SCN[scnKey].end;
+  $('#clockEnd').textContent = isFinite(end) ? `/ ${fmtT(end)} s` : '(runs until reset)';
+  $('#progFill').style.width = isFinite(end) ? Math.min(100, sim.t / end * 100) + '%' : '0';
+  renderTopologyDynamic(tv);
+  renderHosts();
+  renderDecision(tv);
+  renderStats();
+  if (sim.alerts.length !== lastAlertCount || force) { lastAlertCount = sim.alerts.length; renderAlerts(); renderPerfRun(); }
+  if (insp) renderInspector();
+}
+
+function renderTopologyDynamic(tv) {
+  const T = sim.T;
+  for (const h of HOSTS) {
+    const v = swView(h.ip), up = v.tx / LINK_CAPACITY_BPS, dn = v.rx / LINK_CAPACITY_BPS, mx = Math.max(up, dn);
+    const lk = $('#lk-' + h.id);
+    lk.setAttribute('stroke-width', (2.5 + Math.min(mx, 1.2) * 7).toFixed(1));
+    lk.classList.toggle('hi', mx >= T.util_high); lk.classList.toggle('mid', mx >= 0.5 && mx < T.util_high);
+    $('#hu-' + h.id).textContent = `↑${pct0(up)}  ↓${pct0(dn)} of 10 Mb/s`;
+    const ts = telStatus(h.id), tel = sim.ctl.telemetry[h.ip];
+    const hc = $('#hc-' + h.id);
+    hc.textContent = (tel ? `CPU ${tel.cpu_pct}% · ` : '') + 'tel ' + (ts.age != null ? (ts.age > sim.STALE_AFTER ? 'STALE ' : '') + ts.age.toFixed(1) + 's' : ts.cls === 'pend' ? 'waiting' : 'off');
+    hc.style.fill = ts.cls === 'crit' ? 'var(--crit)' : ts.cls === 'warn' ? 'var(--warn)' : 'var(--muted)';
+    const st = hostStatus(h.ip);
+    $('#ring-' + h.id).setAttribute('class', 'ring ' + (st.cls === 'ok' ? '' : st.cls));
+    const ha = $('#ha-' + h.id);
+    ha.textContent = st.rules.length ? (st.cls === 'pend' ? '? ' : '⚠ ') + st.rules.join(', ') + (st.cls === 'pend' ? ` (${st.label.split(' ')[1]})` : '') : '';
+    ha.style.fill = st.cls === 'crit' ? 'var(--crit)' : st.cls === 'warn' ? 'var(--warn)' : 'var(--muted)';
+  }
+  // flow table rows (data flows first)
+  const rows = [...sim.table.values()].sort((a, b) => (a.udp_dst === TELEMETRY_PORT) - (b.udp_dst === TELEMETRY_PORT) || b.bytes - a.bytes);
+  const data = rows.filter(r => r.udp_dst !== TELEMETRY_PORT), tele = rows.filter(r => r.udp_dst === TELEMETRY_PORT);
+  const lines = data.slice(0, 5).map(r => `${nameOf(r.src)}→${nameOf(r.dst)} :5001 ${(r.bytes / 1e6).toFixed(2).padStart(6)} MB ${mb(r.lastBps).padStart(5)} Mb/s`);
+  if (tele.length) lines.push(`${tele.length}× h→.254 :9999  telemetry (not load)`);
+  if (!rows.length) lines.push('(empty: only the table-miss rule)');
+  for (let i = 0; i < 6; i++) { const el = $('#ft' + i); el.textContent = lines[i] || ''; el.style.fill = (lines[i] || '').includes('9999') ? 'var(--tel)' : 'var(--ink)'; }
+  let tot = 0; for (const h of HOSTS) tot += sim.offered[h.id] || 0;
+  $('#lv-s1').textContent = tot ? `forwarding ${mb(tot)} Mb/s now` : 'idle';
+  $('#lv-collector').textContent = lastTel || 'no reports yet';
+  $('#lv-learn').textContent = `${sim.ctl.flowMods} FlowMods`;
+  $('#lv-poller').textContent = sim.ctl.polls ? `poll #${sim.ctl.polls} · ${sim.ctl.lastStats.rows.length} flows` : 'first poll at 2 s';
+  $('#lv-detector').textContent = sim.ctl.evals ? `last check t=${fmtT(sim.ctl.lastEvalT)} s` : '';
+  $('#lv-alert').textContent = `${sim.alerts.length} alert${sim.alerts.length === 1 ? '' : 's'}`;
+  const rec = sim.ctl.lastEval[byId[focusId].ip];
+  if (rec) {
+    $('#cmp1').textContent = `Comparing ${rec.id} at t=${fmtT(rec.now)} s`;
+    $('#cmp2').textContent = rec.tel ? `switch ↑${mb(rec.sw_tx)} Mb/s vs host says ${mb(rec.tel.tx_bps)} · CPU ${rec.tel.cpu_pct}%` : `switch ↑${mb(rec.sw_tx)} ↓${mb(rec.sw_rx)} Mb/s · no telemetry`;
+    const f = Object.keys(rec.findings);
+    $('#cmp3').textContent = f.length ? f.map(r => `${r} ${rec.rules[r].streak}/${sim.CONFIRM}${rec.rules[r].outcome === 'ALERT' ? ' ⇒ ALERT' : ''}`).join(' · ') : (rec.stale ? 'telemetry stale → host not known/active' : 'no rule true → normal');
+    $('#cmp3').style.fill = f.length ? (f.some(r => rec.rules[r].streak >= sim.CONFIRM) ? 'var(--crit)' : 'var(--warn)') : 'var(--ok)';
+  } else { $('#cmp1').textContent = 'Comparison (anomaly detector)'; $('#cmp2').textContent = sim.ctl.evals ? `${focusId} not evaluated yet` : 'waiting for the first check…'; $('#cmp3').textContent = ''; }
+}
+
+function meter(x, thr) { const w = Math.min(100, x * 100); const c = thr != null && x >= thr ? 'hi' : x >= 0.5 ? 'mid' : ''; return `<span class="meter"><i class="${c}" style="width:${w}%"></i>${thr != null ? `<u style="left:${thr * 100}%"></u>` : ''}</span>`; }
+function renderHosts() {
+  const T = sim.T;
+  $('#hostGrid').innerHTML = HOSTS.map(h => {
+    const v = swView(h.ip), ts = telStatus(h.id), tel = sim.ctl.telemetry[h.ip], st = hostStatus(h.ip);
+    const up = v.tx / LINK_CAPACITY_BPS, dn = v.rx / LINK_CAPACITY_BPS;
+    const cpu = tel ? tel.cpu_pct : null;
+    const pill = st.cls === 'ok' ? '<span class="pill ok">NORMAL</span>' : `<span class="pill ${st.cls}">${st.label}${st.rules.length ? ' · ' + st.rules.join(', ') : ''}</span>`;
+    return `<div class="hcard ${st.cls === 'crit' ? 'crit' : st.cls === 'warn' ? 'warn' : ''}" data-kind="host" data-id="${h.id}" title="Click for details">
+      <div class="hhead"><span><b>${h.id}</b> <span class="muted mono">${h.ip}</span></span>${pill}</div>
+      <div class="mrow"><span>CPU</span>${meter(cpu != null ? cpu / 100 : 0, T.cpu_high / 100)}<span class="v">${cpu != null ? cpu + '%' : '—'}</span></div>
+      <div class="mrow"><span>Memory</span>${meter(tel ? tel.mem_pct / 100 : 0)}<span class="v">${tel ? tel.mem_pct + '%' : '—'}</span></div>
+      <div class="mrow"><span>Tx (switch)</span><span class="muted" style="font-size:11.5px">host reports ${tel ? mb(tel.tx_bps) : '—'}</span><span class="v">${mb(v.tx)} Mb/s</span></div>
+      <div class="mrow"><span>Rx (switch)</span><span class="muted" style="font-size:11.5px">host reports ${tel ? mb(tel.rx_bps) : '—'}</span><span class="v">${mb(v.rx)} Mb/s</span></div>
+      <div class="mrow"><span>Uplink</span>${meter(up, T.util_high)}<span class="v">${pct1(up)}</span></div>
+      <div class="mrow"><span>Downlink</span>${meter(dn, T.util_high)}<span class="v">${pct1(dn)}</span></div>
+      <div class="mrow"><span>Telemetry</span><span><span class="pill ${ts.cls}">${ts.text}</span></span><span class="v">${tel ? '#' + tel.seq : ''}</span></div>
+    </div>`;
+  }).join('');
+}
+
+function outcomePill(r) {
+  switch (r.outcome) {
+    case 'ALERT': return `<span class="pill ${SEV_CLS(r.rule)}">ALERT raised</span>`;
+    case 'COOLDOWN': return `<span class="pill ${SEV_CLS(r.rule)}">Confirmed · cooldown</span>`;
+    case 'PENDING': return '<span class="pill pend">Pending</span>';
+    case 'SKIPPED': return '<span class="pill skip">Skipped</span>';
+    default: return '<span class="pill ok">Not met</span>';
+  }
+}
+const SEV_CLS = r => SEV[r] === 'CRITICAL' ? 'crit' : 'warn';
+function ruleWhy(rule, r, rec) {
+  if (r.outcome === 'SKIPPED') return `Not evaluated: needs fresh telemetry (CPU / reported rate), which is ${rec.tel ? 'older than ' + sim.STALE_AFTER + ' s' : 'missing'}.`;
+  if (r.outcome === 'NOT_MET') {
+    const bad = r.conds.filter(c => !c.ok).map(c => c.l.toLowerCase());
+    if (rule === 'TELEMETRY_STALE' && !rec.stale) return 'Telemetry is fresh, so the host is reporting normally.';
+    return `Not all conditions hold (${bad.join(', ') || 'condition false'}), so the streak is 0.`;
+  }
+  if (r.outcome === 'PENDING') return `All conditions hold on this check (${r.streak}/${sim.CONFIRM}). Waiting for the next poll: a single reading could be a blip.`;
+  if (r.outcome === 'ALERT') return `All conditions held on ${r.streak} consecutive checks and there was no alert for this host and rule in the last ${COOLDOWN} s, so an alert is raised.`;
+  if (r.outcome === 'COOLDOWN') return `Still true (streak ${r.streak}), but the same alert was raised less than ${COOLDOWN} s ago; next repeat possible in ${r.cdLeft.toFixed(1)} s.`;
+  return '';
+}
+function renderDecision(tv) {
+  $('#focusTabs').innerHTML = HOSTS.map(h => `<button data-focus="${h.id}" class="${h.id === focusId ? 'sel' : ''}">${h.id}</button>`).join('') +
+    `<label style="font-size:12px;font-weight:500;margin-left:4px"><input type="checkbox" id="autoF" ${autoFocus ? 'checked' : ''}> follow alerts</label>`;
+  const h = byId[focusId], rec = sim.ctl.lastEval[h.ip];
+  if (!rec) {
+    $('#decision').innerHTML = `<p class="muted">${focusId} has not been evaluated yet. The controller only checks hosts it has heard from (telemetry) or seen in flow statistics; the first check is at t = 2 s.</p>`;
+    return;
+  }
+  const since = tv - rec.now, lit = since < 0 ? 0 : Math.min(5, Math.floor(since / 0.15) + 1), act = since < 0.75 ? lit - 1 : -1;
+  const f = Object.keys(rec.findings), conf = f.filter(r => rec.rules[r].streak >= sim.CONFIRM);
+  const fired = f.filter(r => rec.rules[r].outcome === 'ALERT'), cd = f.filter(r => rec.rules[r].outcome === 'COOLDOWN');
+  const big = rec.tel ? Math.max(rec.sw_tx, rec.tel.tx_bps) : 0, ratio = rec.tel && big > 0 ? Math.abs(rec.sw_tx - rec.tel.tx_bps) / big : 0;
+  const stages = [
+    ['1 · Host telemetry + switch flow stats', `${rec.tel ? `Telemetry: CPU ${rec.tel.cpu_pct}%, reports ${mb(rec.tel.tx_bps)} Mb/s (${rec.age.toFixed(1)} s old)` : 'Telemetry: none'}<br>Switch: ↑${mb(rec.sw_tx)} ↓${mb(rec.sw_rx)} Mb/s`],
+    ['2 · Comparison', rec.stale ? `Telemetry ${rec.tel ? 'stale' : 'missing'}: only the switch view is available` : `Utilisation ↑${pct1(rec.tx_util)} ↓${pct1(rec.rx_util)}<br>switch vs host rate differ ${(ratio * 100).toFixed(0)}%`],
+    ['3 · Threshold evaluation', f.length ? `${f.length} rule${f.length > 1 ? 's' : ''} true:<br>${f.join('<br>')}` : 'No rule true'],
+    ['4 · Confirmation', f.length ? f.map(r => `${r}: ${rec.rules[r].streak}/${sim.CONFIRM} consecutive checks`).join('<br>') : 'Nothing to confirm (streaks reset)'],
+    ['5 · Alert', fired.length ? fired.map(r => `<b>${SEV[r]}</b> ${r}`).join('<br>') : cd.length ? `Suppressed by cooldown: ${cd.join(', ')}` : conf.length ? 'Confirmed earlier' : 'No alert'],
+  ];
+  const pipe = stages.map(([t, b], i) => {
+    let c = i < lit ? 'lit' : ''; if (i === act) c += ' act';
+    if (i === 4 && i < lit && fired.length) c += fired.some(r => SEV[r] === 'CRITICAL') ? ' alert' : ' walert';
+    return `<div class="stage ${c}"><b>${t}</b><div>${b}</div></div>`;
+  }).join('');
+  const rows = RULES.map(rule => {
+    const r = rec.rules[rule];
+    const conds = r.conds.map(c => `<div class="cond"><span class="ck ${c.ok ? 'y' : 'n'}">${c.ok ? '✓' : '✗'}</span><span>${c.l}: <b>${c.v}</b> <span class="muted">(${c.thr})</span></span></div>`).join('');
+    const dots = Array.from({ length: sim.CONFIRM }, (_, i) => i < Math.min(r.streak, sim.CONFIRM) ? '●' : '○').join('');
+    return `<tr><td style="width:34%"><div class="rn">${rule}</div><span class="pill ${SEV_CLS(rule)}" style="font-size:10px">${SEV[rule]}</span><div class="why">${RULE_PLAIN[rule]}</div></td>
+      <td>${conds || '<span class="muted">—</span>'}<div class="why">${ruleWhy(rule, r, rec)}</div></td>
+      <td style="width:92px;text-align:right">${outcomePill({ ...r, rule })}<div class="dots" title="consecutive checks">${dots}</div><div class="why">streak ${r.streak}/${sim.CONFIRM}</div></td></tr>`;
+  }).join('');
+  $('#decision').innerHTML = `<div style="font-size:12.5px"><b>${h.id} · ${h.ip}</b> — last check at t = ${fmtT(rec.now)} s (poll #${sim.ctl.polls}). Thresholds: util_high ${pct0(sim.T.util_high)}, util_low ${pct0(sim.T.util_low)}, cpu_high ${sim.T.cpu_high}%, confirm ${sim.CONFIRM}, cooldown ${COOLDOWN} s.</div>
+    <div class="pipe">${pipe}</div><table class="rules">${rows}</table>`;
+}
+
+function renderStats() {
+  const s = sim.ctl.lastStats; let total = 0;
+  if (s) for (const ip in s.tx) total += s.tx[ip];
+  let active = 0; for (const [k, v] of sim.ctl.streak) if (v >= sim.CONFIRM) active++;
+  const fresh = HOSTS.filter(h => { const ts = telStatus(h.id); return ts.age != null && ts.age <= sim.STALE_AFTER; }).length;
+  $('#kpis').innerHTML = [
+    ['Simulation time', fmtT(sim.t) + ' s'], ['Total traffic (switch)', mb(total) + ' Mb/s'], ['Active alerts', `<span style="color:${active ? 'var(--crit)' : 'var(--ok)'}">${active}</span>`],
+    ['Alerts raised', sim.alerts.length], ['Flow-stats polls', sim.ctl.polls], ['Telemetry fresh', `${fresh}/4 hosts`],
+  ].map(([k, v]) => `<div class="kpi"><small>${k}</small><b>${v}</b></div>`).join('');
+  // trend chart
+  const W = 420, H = 150, L = 34, R = 8, Tp = 10, B = 24, hist = sim.history;
+  const t1 = Math.max(60, sim.t), t0 = t1 - 60;
+  const pts = hist.filter(p => p.t >= t0);
+  const ymax = Math.max(12, ...pts.map(p => p.total / 1e6 * 1.1));
+  const X = t => L + (t - t0) / 60 * (W - L - R), Y = v => Tp + (1 - v / ymax) * (H - Tp - B);
+  let g = '';
+  for (let v = 0; v <= ymax; v += ymax > 16 ? 5 : 2) g += `<line x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)"/><text x="${L - 4}" y="${Y(v) + 3.5}" font-size="10" text-anchor="end" fill="var(--muted)">${v}</text>`;
+  for (let t = Math.ceil(t0 / 10) * 10; t <= t1; t += 10) g += `<text x="${X(t)}" y="${H - 8}" font-size="10" text-anchor="middle" fill="var(--muted)">${t}s</text>`;
+  g += `<line x1="${L}" x2="${W - R}" y1="${Y(10)}" y2="${Y(10)}" stroke="var(--crit)" stroke-dasharray="4 3" opacity=".6"/><text x="${W - R}" y="${Y(10) - 3}" font-size="9.5" text-anchor="end" fill="var(--crit)">10 Mb/s = one link</text>`;
+  if (pts.length) {
+    const line = pts.map(p => `${X(p.t).toFixed(1)},${Y(p.total / 1e6).toFixed(1)}`).join(' ');
+    g += `<polygon points="${X(pts[0].t)},${Y(0)} ${line} ${X(pts[pts.length - 1].t)},${Y(0)}" fill="var(--data)" opacity=".15"/><polyline points="${line}" fill="none" stroke="var(--data)" stroke-width="2"/>`;
+  }
+  for (const a of sim.alerts) if (a.ts >= t0) g += `<path d="M${X(a.ts)},${H - B + 1} l-4,7 h8 z" fill="var(--${a.severity === 'CRITICAL' ? 'crit' : 'warn'})"><title>${a.rule} on ${a.id} at ${fmtT(a.ts)} s</title></path>`;
+  g += `<text x="${L}" y="9" font-size="10" fill="var(--muted)">Total traffic measured by the switch (Mb/s) · ▲ = alert</text>`;
+  $('#trend').innerHTML = g;
+}
+
+function renderAlerts() {
+  const al = sim.alerts;
+  if (!al.length) {
+    const exp = SCN[scnKey].expected;
+    $('#alertLog').innerHTML = `<div class="empty">No alerts yet.${exp && !exp.length ? ' For this scenario that is the correct result for normal behaviour.' : ''}</div>`;
+    return;
+  }
+  $('#alertLog').innerHTML = `<table><tr><th>Time</th><th>Host</th><th>Rule / severity</th><th>Explanation</th></tr>${al.slice().reverse().map(a => `
+    <tr class="${a.severity === 'CRITICAL' ? 'crit' : 'warn'}"><td class="mono">${fmtT(a.ts)} s</td><td><b>${a.id}</b><br><span class="mono muted">${a.host}</span></td>
+    <td><b style="font-size:12px">${a.rule}</b><br><span class="pill ${a.severity === 'CRITICAL' ? 'crit' : 'warn'}">${a.severity}</span></td>
+    <td>${explainAlert(a)}<div class="det">[${a.severity}] ${a.rule} host=${a.host}: ${a.detail}</div></td></tr>`).join('')}</table>`;
+}
+
+function scoreHtml(sc, scn, markT, running) {
+  if (!sc) return '<p class="muted">Custom runs have no ground-truth label, so they cannot be scored. Use the five predefined scenarios.</p>';
+  const lab = x => { const [h, r] = x.split('|'); return `${r} on ${nameOf(h)}`; };
+  const items = [];
+  for (const x of sc.tp) items.push(`<li><span class="pill ok">TP</span> ${lab(x)} detected${sc.ttd[x] != null ? ` — time to detect <b>${sc.ttd[x].toFixed(1)} s</b>` : ''}</li>`);
+  for (const x of sc.fn) items.push(`<li><span class="pill crit">FN${running ? '?' : ''}</span> ${lab(x)} ${running ? 'not detected yet' : 'missed'}</li>`);
+  for (const x of sc.fp) items.push(`<li><span class="pill warn">FP</span> ${lab(x)}: an alert the scenario did not expect (false alarm)</li>`);
+  if (sc.tn) items.push(`<li><span class="pill ok">TN</span> nothing expected and nothing raised${running ? ' (so far)' : ''}</li>`);
+  return `<p style="font-size:12.5px"><b>Expected (evaluate.py EXPECTED):</b> ${scn.expected.length ? scn.expected.map(([h, r]) => `${r} on ${nameOf(h)}`).join(', ') : 'nothing'}</p><ul style="font-size:12.5px;padding-left:18px;margin:4px 0">${items.join('')}</ul>`;
+}
+function renderPerfRun() {
+  const scn = SCN[scnKey], sc = scoreRun(scn, sim.alerts, sim.markT);
+  $('#perfRun').innerHTML = (state === 'ready' && !sim.alerts.length && sc ? '<p class="muted" style="font-size:12.5px">Start the scenario to score it live.</p>' : '') + scoreHtml(sc, scn, sim.markT, state !== 'done');
+}
+function renderPerfSim() {     // headless runs of all five scenarios
+  const tot = { TP: 0, FP: 0, FN: 0, TN: 0 };
+  const rows = ['normal', 'abnormal', 'benign_backup', 'slow_attack', 'telemetry_kill'].map(k => {
+    const s = new Sim(SCN[k]); while (!s.done) s.step();
+    const sc = scoreRun(SCN[k], s.alerts, s.markT);
+    tot.TP += sc.tp.length; tot.FP += sc.fp.length; tot.FN += sc.fn.length; tot.TN += sc.tn;
+    const t = Object.values(sc.ttd);
+    const fa = sc.fp.map(x => { const [h, r] = x.split('|'); return `${r} on ${h}`; }).join('; ') || '-';
+    return `<tr><td>${k}</td><td>${sc.exp.size ? sc.tp.length + '/' + sc.exp.size : '-'}</td><td>${t.length ? (t.reduce((a, b) => a + b, 0) / t.length).toFixed(1) + ' s' : '-'}</td><td>${fa}</td></tr>`;
+  }).join('');
+  $('#perfSim').innerHTML = `<table class="tbl"><tr><th>scenario</th><th>expected detected</th><th>mean time to detect</th><th>false alarms</th></tr>${rows}</table>
+    <p style="font-size:12.5px">Totals (1 run each): TP = ${tot.TP}, FP = ${tot.FP}, FN = ${tot.FN}, TN = ${tot.TN}. The <b>benign backup</b> gives false positives (thresholds exceeded by harmless traffic), the <b>slow attack</b> gives a false negative (attack under every threshold), and CPU_SATURATION near the end of the flood/backup comes from the staged CPU override.</p>`;
+}
+
+function renderScenarioInfo() {
+  const s = SCN[scnKey];
+  let done = '';
+  if (state === 'done') { const sc = scoreRun(s, sim.alerts, sim.markT); done = `<div class="done-banner">Scenario finished at t = ${fmtT(sim.t)} s with ${sim.alerts.length} alert(s). ${sc ? `evaluate.py would score this run: TP ${sc.tp.length} · FP ${sc.fp.length} · FN ${sc.fn.length} · TN ${sc.tn}` : ''} — press Reset to run it again.</div>`; }
+  $('#scnInfo').innerHTML = `<h2>${s.title} <span class="muted mono" style="font-weight:400">${s.cmd}</span></h2>
+    <div><div class="k">What happens</div><p>${s.what}</p><div class="k">Ground truth</div><p>${s.truth}</p></div>
+    <div><div class="k">What the controller should do</div><p>${s.expect}</p></div>
+    <div class="viva"><b>Explain in the viva:</b> ${s.viva}</div>${done}`;
+  const pr = $('#progress');
+  pr.querySelectorAll('.mk').forEach(e => e.remove());
+  if (isFinite(s.end)) for (const [t, l] of s.marks) { const d = document.createElement('div'); d.className = 'mk'; d.style.left = (t / s.end * 100) + '%'; d.innerHTML = `<span>${l}</span>`; if (t === s.end) { d.style.left = 'calc(100% - 2px)'; d.querySelector('span').style.cssText = 'left:auto;right:5px'; } pr.appendChild(d); }
+  $('#customPanel').hidden = scnKey !== 'custom';
+}
+
+// ---- inspector -----------------------------------------------------------
+function openInspector(kind, id) { insp = { kind, id }; $('#inspector').hidden = false; renderInspector(); }
+function kv(pairs) { return `<div class="kv">${pairs.map(([k, v]) => `<div>${k}</div><div>${v}</div>`).join('')}</div>`; }
+function flowTableHtml(filterIp) {
+  const rows = [...sim.table.values()].filter(e => !filterIp || e.src === filterIp || e.dst === filterIp);
+  if (!rows.length) return '<p class="muted">No matching flow entries.</p>';
+  return `<table class="tbl"><tr><th>match (priority 10)</th><th>n_packets</th><th>n_bytes</th><th>age</th><th>rate @ poll</th></tr>${rows.map(e =>
+    `<tr${e.udp_dst === TELEMETRY_PORT ? ' style="color:var(--tel)"' : ''}><td class="mono">ipv4 ${e.src}→${e.dst}<br>udp_dst=${e.udp_dst}${e.udp_dst === TELEMETRY_PORT ? ' (telemetry, ignored as load)' : ''}</td><td>${Math.floor(e.packets)}</td><td>${Math.round(e.bytes).toLocaleString()}</td><td>${((sim.tick - e.created) * TICK).toFixed(0)} s</td><td>${mb(e.lastBps)} Mb/s</td></tr>`).join('')}</table>`;
+}
+function renderInspector() {
+  const { kind, id } = insp; let title = '', html = '';
+  if (kind === 'host') {
+    const h = byId[id], H = sim.H[id], tel = sim.ctl.telemetry[h.ip], v = swView(h.ip), st = hostStatus(h.ip), ts = telStatus(id), rec = sim.ctl.lastEval[h.ip];
+    title = `Host ${id} · ${h.ip}`;
+    const delivered = Math.min(sim.offered[id] || 0, LINK_CAPACITY_BPS);
+    html = kv([['IP address', h.ip + '/24'], ['MAC', h.mac + ' (autoSetMacs)'], ['Interface', `${id}-eth0 ↔ s1-eth${h.port}`], ['Link', '10 Mb/s (TCLink bw=10)'],
+      ['Alert status', `<span class="pill ${st.cls}">${st.label}${st.rules.length ? ' · ' + st.rules.join(', ') : ''}</span>`],
+      ['Telemetry', `<span class="pill ${ts.cls}">${ts.text}</span>`], ['Client', H.telOn ? `running, --cpu-override ${H.cpu}` : 'not running'],
+      ['Switch: transmit', `${mb(v.tx)} Mb/s (${pct1(v.tx / LINK_CAPACITY_BPS)} uplink)`], ['Switch: receive', `${mb(v.rx)} Mb/s (${pct1(v.rx / LINK_CAPACITY_BPS)} downlink)`],
+      ['Actually delivered now', `${mb(delivered)} Mb/s${(sim.offered[id] || 0) > LINK_CAPACITY_BPS ? ' (link full, s1 drops the rest)' : ''}`]]);
+    html += `<h3>Last telemetry message held by the controller</h3>${tel ? `<pre>${JSON.stringify({ host: tel.host, seq: tel.seq, ts: tel.ts, iface: tel.iface, cpu_pct: tel.cpu_pct, mem_pct: tel.mem_pct, tx_bps: Math.round(tel.tx_bps), rx_bps: Math.round(tel.rx_bps) }, null, 1)}</pre><p class="muted" style="font-size:12px">received at t = ${fmtT(tel._rx_ts)} s from source IP ${h.ip}. tx_bps/rx_bps are measured from /proc/net/dev (real per-host counters); cpu_pct is the staged override.</p>` : '<p class="muted">none received</p>'}`;
+    html += `<h3>Command started by topology.py</h3><pre>${id} python3 telemetry_client.py --server 10.0.0.254 --interval 2 --host-id ${id}${H.cpu != null ? ' --cpu-override ' + H.cpu : ''} &amp;</pre>`;
+    html += `<h3>Flow entries in s1 for ${id}</h3>${flowTableHtml(h.ip)}`;
+    if (rec) html += `<h3>Detector, last check (t = ${fmtT(rec.now)} s)</h3><ul style="padding-left:18px;margin:4px 0">${RULES.map(r => `<li><b>${r}</b>: ${rec.rules[r].outcome.replace('_', ' ').toLowerCase()} (streak ${rec.rules[r].streak}/${sim.CONFIRM})</li>`).join('')}</ul>`;
+    const ha = sim.alerts.filter(a => a.id === id);
+    html += `<h3>Alerts for ${id}</h3>${ha.length ? '<ul style="padding-left:18px;margin:4px 0">' + ha.map(a => `<li>${fmtT(a.ts)} s · <b>${a.rule}</b> (${a.severity})</li>`).join('') + '</ul>' : '<p class="muted">none</p>'}`;
+  } else if (kind === 'switch') {
+    title = 'Switch s1 · Open vSwitch (OpenFlow 1.3)';
+    html = `<p><b>How forwarding works.</b> s1 starts with a single <i>table-miss</i> rule (priority 0 → send to controller). When the first packet of a new conversation arrives, s1 sends it to the controller as a <b>Packet-In</b>. The controller's learning switch remembers which port each MAC address lives on (<code>mac_to_port</code>) and installs a priority-10 rule with a <b>FlowMod</b>. The rule matches eth_type IPv4, ipv4_src, ipv4_dst, ip_proto and (for UDP) udp_dst, and has idle_timeout 10 s. Later packets of that flow are forwarded by s1 itself, and every packet adds to the rule's <b>n_packets / n_bytes counters</b>.</p>
+      <p><b>Why per-host rates are possible:</b> because the match includes source and destination IP, the controller can add up bytes per sender (uplink) and per receiver (downlink). Telemetry gets its own rules (udp_dst 9999), so the controller can skip it.</p>
+      <p><b>Why downlink can exceed 100%:</b> a packet is counted when it matches the rule, before it waits in the output queue toward a full 10 Mb/s link, where some are dropped.</p>
+      ${kv([['Ports', 's1-eth1…eth4 → h1…h4, s1-eth5 → root-eth0 (10.0.0.254)'], ['Controller', 'RemoteController 127.0.0.1:6653, OpenFlow 1.3'], ['Flow entries', sim.table.size + ' (+ table-miss)'], ['FlowMods so far', sim.ctl.flowMods], ['Stats polls answered', sim.ctl.polls]])}
+      <h3>Flow table (live counters)</h3>${flowTableHtml(null)}`;
+  } else if (kind === 'controller') {
+    title = 'Ryu controller · monitor_controller.py';
+    const T = sim.T;
+    html = `<ul style="padding-left:18px;margin:4px 0">
+      <li><b>Learning switch</b>: handles Packet-In, installs priority-10 IPv4 flows (FlowMod).</li>
+      <li><b>Telemetry collector</b>: UDP socket on port 9999; stores the latest JSON per source IP with its receive time.</li>
+      <li><b>Flow-stats poller</b>: sends OFPFlowStatsRequest every ${POLL_INTERVAL} s; converts byte deltas into bits/s per host.</li>
+      <li><b>Anomaly detector</b>: compares both views of each host with 6 rules; a rule must hold on ${sim.CONFIRM} consecutive checks.</li>
+      <li><b>Alert generator</b>: prints the alert and appends it to alerts.jsonl; the same host+rule is repeated at most every ${COOLDOWN} s.</li></ul>
+      <h3>Inputs it currently holds</h3>
+      <table class="tbl"><tr><th>host</th><th>telemetry (cpu · reported tx · age)</th><th>flow stats (tx / rx)</th></tr>${HOSTS.map(h => { const tel = sim.ctl.telemetry[h.ip], v = swView(h.ip); return `<tr><td><b>${h.id}</b></td><td>${tel ? `${tel.cpu_pct}% · ${mb(tel.tx_bps)} Mb/s · ${(sim.t - tel._rx_ts).toFixed(1)} s` : '—'}</td><td>${mb(v.tx)} / ${mb(v.rx)} Mb/s</td></tr>`; }).join('')}</table>
+      <h3>Thresholds in use</h3>${kv([['util_high', pct0(T.util_high)], ['util_low', pct0(T.util_low)], ['cpu_high', T.cpu_high + '%'], ['mismatch_ratio', pct0(T.mismatch_ratio)], ['mismatch_min_bps', '500,000 (0.5 Mb/s)'], ['STALE_AFTER', sim.STALE_AFTER + ' s'], ['MIN_BPS', '50,000 (50 kb/s)'], ['CONFIRM_CYCLES', sim.CONFIRM], ['COOLDOWN', COOLDOWN + ' s'], ['LINK_CAPACITY_BPS', '10,000,000']])}
+      <h3>Current decisions</h3><ul style="padding-left:18px;margin:4px 0">${HOSTS.map(h => { const st = hostStatus(h.ip), rec = sim.ctl.lastEval[h.ip]; return `<li><b>${h.id}</b>: ${rec ? `<span class="pill ${st.cls}">${st.label}</span> ${Object.keys(rec.findings).map(r => `${r} ${rec.rules[r].streak}/${sim.CONFIRM}`).join(', ')}` : 'not evaluated yet'}</li>`; }).join('')}</ul>`;
+  } else if (kind === 'root') {
+    title = 'root-eth0 · 10.0.0.254 (collector side)';
+    html = `<p>topology.py attaches a node in the VM's <b>root namespace</b> to s1 (port s1-eth5) and gives it the address <b>10.0.0.254</b>. The Ryu controller runs in the root namespace, so its UDP socket on port 9999 receives every datagram that reaches this interface.</p>
+      <p>Each host's telemetry is an ordinary UDP packet: host → s1 (data plane, its own flow rule udp_dst 9999) → s1-eth5 → 10.0.0.254 → controller socket. It never travels inside the OpenFlow channel. OpenFlow (TCP 6653 on 127.0.0.1) carries only switch control messages: Packet-In, FlowMod, FlowStatsRequest/Reply.</p>
+      <p class="muted">telemetry_server.py (Stage 2 test) binds the same port, so it must not run together with the controller.</p>
+      ${kv([['Telemetry datagrams received', sim.ctl.telRx], ['Telemetry flow rules in s1', [...sim.table.values()].filter(e => e.udp_dst === TELEMETRY_PORT).length]])}`;
+  }
+  $('#inspTitle').textContent = title; $('#inspBody').innerHTML = html;
+}
+
+// ---- events --------------------------------------------------------------
+$('#bStart').onclick = start; $('#bPause').onclick = pause; $('#bResume').onclick = resume; $('#bStep').onclick = nextStep; $('#bReset').onclick = makeSim;
+$('#speed').oninput = e => { speed = SPEEDS[+e.target.value]; $('#speedLbl').textContent = speed + '×'; };
+$('#scenario').onchange = e => { scnKey = e.target.value; makeSim(); };
+$('#explain').onchange = e => { explainOn = e.target.checked; $('#narrCard').hidden = !explainOn; $('#nowLine').hidden = !explainOn; if (explainOn) narrEl.scrollTop = narrEl.scrollHeight; };
+document.addEventListener('click', e => {
+  const f = e.target.closest('[data-focus]'); if (f) { focusId = f.dataset.focus; renderUI(false, sim.t + acc); return; }
+  if (e.target.id === 'autoF') { autoFocus = e.target.checked; return; }
+  const k = e.target.closest('[data-kind]'); if (k && !e.target.closest('#inspector')) openInspector(k.dataset.kind, k.dataset.id);
+});
+$('#inspClose').onclick = () => { insp = null; $('#inspector').hidden = true; };
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && insp) $('#inspClose').click(); });
+
+// custom panel
+$('#cTel').innerHTML = HOSTS.map(h => `<label><input type="checkbox" data-tel="${h.id}" checked> ${h.id}</label>`).join('');
+const TH = [['tUH', 'oUH', 'uh', v => v + '%'], ['tUL', 'oUL', 'ul', v => v + '%'], ['tCH', 'oCH', 'ch', v => v + '%'], ['tMR', 'oMR', 'mr', v => v + '%'], ['tCC', 'oCC', 'cc', v => v], ['tSA', 'oSA', 'sa', v => v + ' s']];
+function readCustom() {
+  const c = { src: $('#cSrc').value, dst: $('#cDst').value, rate: +$('#cRate').value, cpu: +$('#cCpu').value, base: $('#cBase').checked, tel: {} };
+  document.querySelectorAll('[data-tel]').forEach(el => { c.tel[el.dataset.tel] = el.checked; });
+  for (const [i, , k] of TH) c[k] = +$('#' + i).value;
+  return c;
+}
+function writeCustom(c) {
+  $('#cSrc').value = c.src; $('#cDst').value = c.dst; $('#cRate').value = c.rate; $('#cCpu').value = c.cpu; $('#cBase').checked = c.base;
+  document.querySelectorAll('[data-tel]').forEach(el => { el.checked = c.tel[el.dataset.tel]; });
+  for (const [i, , k] of TH) $('#' + i).value = c[k];
+  syncOutputs();
+}
+function syncOutputs() {
+  $('#oRate').textContent = $('#cRate').value + ' Mb/s'; $('#oCpu').textContent = $('#cCpu').value + '%';
+  for (const [i, o, , fmt] of TH) $('#' + o).textContent = fmt($('#' + i).value);
+}
+document.querySelectorAll('#customPanel input').forEach(el => el.addEventListener('input', syncOutputs));
+$('#cApply').onclick = () => {
+  const c = readCustom();
+  if (c.src === c.dst) { $('#cStatus').textContent = 'Sender and receiver must be different hosts.'; return; }
+  customCfg = c;
+  if (state === 'ready') { makeSim(); $('#cStatus').textContent = 'Settings stored. Press Start to run with them.'; }
+  else if (state === 'done') { makeSim(); $('#cStatus').textContent = 'Simulation reset with the new settings.'; }
+  else { sim.applyCustom(JSON.parse(JSON.stringify(c))); $('#cStatus').textContent = `Applied at t = ${fmtT(sim.t)} s.`; renderUI(true, sim.t); }
+};
+$('#cDefaults').onclick = () => { customCfg = JSON.parse(JSON.stringify(CUSTOM_DEFAULT)); writeCustom(customCfg); makeSim(); $('#cStatus').textContent = 'All defaults restored and the simulation was reset.'; };
+
+// ---- boot ---------------------------------------------------------------
+writeCustom(customCfg);
+$('#scenario').value = scnKey;
+renderPerfSim();
+makeSim();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
